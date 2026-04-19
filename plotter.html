@@ -10,22 +10,23 @@
             --accent: #00f2ff;
             --border: #1e293b;
             --text: #f8fafc;
+            --danger: #ef4444;
         }
 
         body {
             margin: 0; background: var(--bg); color: var(--text);
-            font-family: 'Inter', sans-serif; display: grid;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            display: grid;
             grid-template-columns: 300px 1fr 300px;
             grid-template-rows: 60px 1fr 250px;
             height: 100vh; gap: 10px; padding: 10px; box-sizing: border-box;
         }
 
-        header { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); padding: 0 20px; }
+        header { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); padding: 0 20px; background: var(--panel); border-radius: 8px; }
         
-        .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; position: relative; }
+        .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; }
         
-        /* WebGL Main Viewport */
-        #main-render { grid-column: 2; grid-row: 2; display: flex; flex-direction: column; }
+        #main-render { grid-column: 2; grid-row: 2; position: relative; }
         canvas { width: 100%; height: 100%; background: #000; }
 
         .sidebar-left { grid-column: 1; grid-row: 2 / 4; display: flex; flex-direction: column; gap: 10px; }
@@ -33,16 +34,34 @@
         .bottom-bar { grid-column: 2; grid-row: 3; }
 
         .stat-card { padding: 15px; border-bottom: 1px solid var(--border); }
-        .stat-value { font-family: monospace; font-size: 1.5rem; color: var(--accent); }
+        .stat-value { font-family: 'Courier New', Courier, monospace; font-size: 1.8rem; color: var(--accent); text-shadow: 0 0 10px rgba(0, 242, 255, 0.3); }
         
-        h2 { font-size: 0.8rem; text-transform: uppercase; color: #64748b; margin: 0 0 10px 0; }
+        h2 { font-size: 0.7rem; text-transform: uppercase; color: #64748b; margin: 0 0 10px 0; letter-spacing: 1px; }
+
+        /* WebRTC Handshake UI */
+        .handshake-controls { padding: 15px; background: rgba(0,0,0,0.2); }
+        textarea { 
+            width: 100%; height: 60px; background: #020617; color: #94a3b8; 
+            border: 1px solid var(--border); border-radius: 4px; font-size: 10px; 
+            margin-bottom: 8px; resize: none; outline: none;
+        }
+        textarea:focus { border-color: var(--accent); }
+        button { 
+            width: 100%; padding: 10px; background: var(--accent); color: #000; 
+            border: none; border-radius: 4px; font-weight: bold; cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        button:hover { opacity: 0.8; }
+        
+        #log { font-size: 0.7rem; color: #94a3b8; height: 120px; overflow-y: auto; line-height: 1.4; }
+        .log-entry { border-left: 2px solid var(--accent); padding-left: 8px; margin-bottom: 4px; }
     </style>
 </head>
 <body>
 
     <header>
-        <div style="font-weight: bold; color: var(--accent)">GRAY CODE ENCODER V5.1</div>
-        <div id="connection-status">SENSORS: ONLINE (WS://8080)</div>
+        <div style="font-weight: bold; color: var(--accent); letter-spacing: 2px;">GRAY CODE ENCODER V5.1</div>
+        <div id="connection-status" style="color: var(--danger); font-size: 0.8rem; font-weight: bold;">DISCONNECTED (WAITING FOR OFFER)</div>
     </header>
 
     <aside class="sidebar-left">
@@ -53,11 +72,24 @@
             </div>
             <div class="stat-card">
                 <h2>Raw Sensor Data</h2>
-                <div class="stat-value" id="raw-bits" style="font-size: 1rem;">0000 0000</div>
+                <div class="stat-value" id="raw-bits" style="font-size: 1.2rem;">0000 0000</div>
+            </div>
+            
+            <div class="handshake-controls">
+                <h2>WebRTC Handshake</h2>
+                <textarea id="offerInput" placeholder="1. Plak Offer uit terminal..."></textarea>
+                <button onclick="processOffer()">VERWERK OFFER</button>
+                <textarea id="answerOutput" readonly style="margin-top: 10px;" placeholder="2. Kopieer dit naar terminal..."></textarea>
             </div>
         </div>
+        
         <div class="panel" style="height: 200px;">
-            <div class="stat-card"><h2>Anomalie Log</h2><div id="log" style="font-size: 0.7rem; color: #94a3b8;">Systeem gestart...</div></div>
+            <div class="stat-card">
+                <h2>Systeem Log</h2>
+                <div id="log">
+                    <div class="log-entry">Wachten op initiatie...</div>
+                </div>
+            </div>
         </div>
     </aside>
 
@@ -67,14 +99,110 @@
 
     <aside class="sidebar-right">
         <div class="panel" style="flex: 1;">
-            <div class="stat-card"><h2>Stabiliteit</h2><canvas id="sparkline"></canvas></div>
+            <div class="stat-card">
+                <h2>Stabiliteit Index</h2>
+                <canvas id="sparkline" style="height: 100px; width: 100%;"></canvas>
+            </div>
+            <div class="stat-card" id="ice-status" style="font-size: 0.7rem; color: #64748b;">
+                ICE State: new
+            </div>
         </div>
     </aside>
 
     <footer class="bottom-bar panel">
-        <div class="stat-card"><h2>Live Data Stream (C++ Pipeline)</h2></div>
+        <div class="stat-card">
+            <h2>Live Data Stream (C++ Pipeline)</h2>
+            <div style="display: flex; gap: 20px; align-items: center; margin-top: 10px;">
+                <div style="color: var(--accent); font-size: 0.8rem;">● Latency: <span id="latency">0</span>ms</div>
+                <div style="color: var(--accent); font-size: 0.8rem;">● Packets: <span id="packet-count">0</span></div>
+            </div>
+        </div>
     </footer>
 
-    <script type="module" src="/src/main.ts"></script>
+    <script>
+        // --- WebRTC Configuratie ---
+        const pc = new RTCPeerConnection({
+            iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+        });
+
+        let packetCount = 0;
+        const logEl = document.getElementById('log');
+
+        function addLog(msg) {
+            const div = document.createElement('div');
+            div.className = 'log-entry';
+            div.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            logEl.prepend(div);
+        }
+
+        pc.oniceconnectionstatechange = () => {
+            document.getElementById('ice-status').innerText = `ICE State: ${pc.iceConnectionState}`;
+        };
+
+        pc.ondatachannel = (event) => {
+            const dc = event.channel;
+            dc.binaryType = "arraybuffer";
+
+            dc.onopen = () => {
+                document.getElementById('connection-status').innerText = "ONLINE (WEBRTC DIRECT)";
+                document.getElementById('connection-status').style.color = "var(--accent)";
+                addLog("DataChannel geopend. Stream actief.");
+            };
+
+            dc.onmessage = (e) => {
+                packetCount++;
+                document.getElementById('packet-count').innerText = packetCount;
+
+                // DATA VERWERKEN (C++ uint32_t)
+                const view = new DataView(e.data);
+                const rawVal = view.getUint32(0, true); // Little-endian
+
+                // UI Update
+                const angle = (rawVal % 360).toFixed(3);
+                document.getElementById('angle-display').innerText = `${angle}°`;
+                
+                const bits = rawVal.toString(2).padStart(8, '0');
+                document.getElementById('raw-bits').innerText = bits.replace(/(.{4})/g, '$1 ');
+                
+                // Hier kun je WebGL aansturen op het glcanvas
+            };
+        };
+
+        async function processOffer() {
+            const offerSdp = document.getElementById('offerInput').value;
+            if (!offerSdp) return alert("Plak eerst de offer!");
+
+            try {
+                addLog("Offer verwerken...");
+                await pc.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: offerSdp }));
+                
+                const answer = await pc.createAnswer();
+                await pc.setLocalDescription(answer);
+
+                // Wacht op ICE candidates om compleet te zijn voor een stabiele answer
+                pc.onicecandidate = (e) => {
+                    if (!e.candidate) {
+                        document.getElementById('answerOutput').value = pc.localDescription.sdp;
+                        addLog("Answer gegenereerd. Kopieer naar terminal.");
+                    }
+                };
+            } catch (err) {
+                addLog("FOUT: " + err.message);
+                alert("SDP Parse Fout. Controleer de tekst.");
+            }
+        }
+
+        // Simpele Canvas visualisatie (Placeholder voor WebGL)
+        const canvas = document.getElementById('glcanvas');
+        const ctx = canvas.getContext('2d');
+        function draw() {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.strokeStyle = '#00f2ff';
+            ctx.beginPath(); ctx.arc(canvas.width/2, canvas.height/2, 50, 0, Math.PI*2); ctx.stroke();
+            requestAnimationFrame(draw);
+        }
+        draw();
+    </script>
 </body>
 </html>
