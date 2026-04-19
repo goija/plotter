@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <title>Gray Code Encoder - Pro Dashboard</title>
+    <style>
+        :root {
+            --bg: #05070a;
+            --panel: #0f172a;
+            --accent: #00f2ff;
+            --border: #1e293b;
+            --text: #f8fafc;
+        }
+
+        body {
+            margin: 0; background: var(--bg); color: var(--text);
+            font-family: 'Inter', sans-serif; display: grid;
+            grid-template-columns: 300px 1fr 300px;
+            grid-template-rows: 60px 1fr 250px;
+            height: 100vh; gap: 10px; padding: 10px; box-sizing: border-box;
+        }
+
+        header { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); padding: 0 20px; }
+        
+        .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; position: relative; }
+        
+        /* WebGL Main Viewport */
+        #main-render { grid-column: 2; grid-row: 2; display: flex; flex-direction: column; }
+        canvas { width: 100%; height: 100%; background: #000; }
+
+        .sidebar-left { grid-column: 1; grid-row: 2 / 4; display: flex; flex-direction: column; gap: 10px; }
+        .sidebar-right { grid-column: 3; grid-row: 2 / 4; display: flex; flex-direction: column; gap: 10px; }
+        .bottom-bar { grid-column: 2; grid-row: 3; }
+
+        .stat-card { padding: 15px; border-bottom: 1px solid var(--border); }
+        .stat-value { font-family: monospace; font-size: 1.5rem; color: var(--accent); }
+        
+        h2 { font-size: 0.8rem; text-transform: uppercase; color: #64748b; margin: 0 0 10px 0; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div style="font-weight: bold; color: var(--accent)">GRAY CODE ENCODER V5.1</div>
+        <div id="connection-status">SENSORS: ONLINE (WS://8080)</div>
+    </header>
+
+    <aside class="sidebar-left">
+        <div class="panel" style="flex: 1;">
+            <div class="stat-card">
+                <h2>Actuele Hoek</h2>
+                <div class="stat-value" id="angle-display">0.000°</div>
+            </div>
+            <div class="stat-card">
+                <h2>Raw Sensor Data</h2>
+                <div class="stat-value" id="raw-bits" style="font-size: 1rem;">0000 0000</div>
+            </div>
+        </div>
+        <div class="panel" style="height: 200px;">
+            <div class="stat-card"><h2>Anomalie Log</h2><div id="log" style="font-size: 0.7rem; color: #94a3b8;">Systeem gestart...</div></div>
+        </div>
+    </aside>
+
+    <main id="main-render" class="panel">
+        <canvas id="glcanvas"></canvas>
+    </main>
+
+    <aside class="sidebar-right">
+        <div class="panel" style="flex: 1;">
+            <div class="stat-card"><h2>Stabiliteit</h2><canvas id="sparkline"></canvas></div>
+        </div>
+    </aside>
+
+    <footer class="bottom-bar panel">
+        <div class="stat-card"><h2>Live Data Stream (C++ Pipeline)</h2></div>
+    </footer>
+
+    <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
