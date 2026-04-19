@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VORTEX // SFERISCHE_TRIGONOMETRIE_v51.0</title>
+    <style>
+        :root {
+            --bg: #000400; --panel: #000f00; --accent: #00ff41; 
+            --solar: #ffcc00; --border: #003300; --math: #00d4ff;
+            --night: #050515; --gray: #ff00ff; --text: #e0e0e0;
+        }
+
+        body {
+            margin: 0; background: var(--bg); color: var(--text);
+            font-family: 'JetBrains Mono', 'Courier New', monospace;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh;
+            padding: 20px; box-sizing: border-box;
+        }
+
+        .dashboard {
+            background: rgba(0, 15, 0, 0.85); border: 2px solid var(--accent);
+            box-shadow: 0 0 30px rgba(0, 255, 65, 0.15); width: 100%; max-width: 1000px;
+            display: flex; flex-direction: column; border-radius: 6px; overflow: hidden;
+        }
+
+        .header {
+            background: var(--panel); padding: 15px 25px; border-bottom: 2px solid var(--accent);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+
+        .header-title { font-weight: bold; letter-spacing: 2px; font-size: 1.1rem; color: var(--accent); }
+        .header-coords { font-size: 0.8rem; opacity: 0.8; color: var(--solar); }
+
+        .layout-grid { display: grid; grid-template-columns: 300px 1fr; border-bottom: 1px solid var(--border); }
+
+        /* Inputs Panel */
+        .input-panel { padding: 20px; background: rgba(0,0,0,0.6); border-right: 1px solid var(--border); }
+        .input-group { margin-bottom: 15px; }
+        .input-group label { display: block; font-size: 0.75rem; color: var(--accent); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px;}
+        .input-group input { 
+            width: 100%; background: var(--panel); border: 1px solid var(--border); color: var(--solar); 
+            padding: 8px; font-family: monospace; font-size: 1rem; box-sizing: border-box; border-radius: 2px;
+        }
+        .input-group input:focus { outline: none; border-color: var(--accent); }
+
+        /* Viz Panel */
+        .viz-panel { padding: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; background: #000; }
+        canvas { border: 1px solid var(--border); border-radius: 50% 50% 0 0; background: linear-gradient(to bottom, #001122, #000000); }
+        .horizon-line { width: 100%; height: 2px; background: var(--accent); margin-top: -1px; z-index: 2; position: relative; }
+        .viz-label { font-size: 0.8rem; color: var(--solar); margin-top: 15px; text-align: center; }
+
+        /* Math Panel */
+        .math-panel { padding: 20px; background: rgba(0, 20, 0, 0.7); }
+        .math-title { font-size: 0.85rem; color: var(--accent); margin-bottom: 15px; border-bottom: 1px dashed var(--border); padding-bottom: 5px; text-transform: uppercase; }
+        .math-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .math-step { margin-bottom: 10px; font-size: 0.9rem; display: flex; flex-direction: column; }
+        .step-label { font-size: 0.65rem; color: var(--gray); margin-bottom: 2px; }
+        .step-val { color: var(--math); font-weight: bold; }
+        .final-val { color: var(--solar); font-size: 1.5rem; font-weight: 900; margin-top: 5px; text-shadow: 0 0 10px rgba(255,204,0,0.3); }
+
+        .footer { padding: 12px 25px; background: var(--panel); font-size: 0.75rem; display: flex; justify-content: space-between; color: var(--solar); }
+    </style>
+</head>
+<body>
+
+    <div class="dashboard">
+        <div class="header">
+            <div class="header-title">VORTEX // SFERISCHE_TRANSFORMATIE</div>
+            <div class="header-coords">LAREN REFERENTIE (APRIL 2026)</div>
+        </div>
+
+        <div class="layout-grid">
+            <div class="input-panel">
+                <div class="input-group">
+                    <label>Waarnemer Breedtegraad (ϕ)</label>
+                    <input type="number" id="inp-lat" step="0.01" value="52.26">
+                </div>
+                <div class="input-group">
+                    <label>Waarnemer Lengtegraad (λ)</label>
+                    <input type="number" id="inp-lon" step="0.01" value="5.17">
+                </div>
+                <div class="input-group">
+                    <label>Datum & Tijd (Lokale Tijd)</label>
+                    <input type="datetime-local" id="inp-time" value="2026-04-19T21:50">
+                </div>
+                <div class="input-group">
+                    <label>Rechte Klimming (RA in Uren)</label>
+                    <input type="number" id="inp-ra" step="0.01" value="1.8">
+                    <div style="font-size:0.6rem; color:#666; margin-top:3px;">Zon in april ~1.8u. Vega = 18.61u</div>
+                </div>
+                <div class="input-group">
+                    <label>Declinatie (Dec in Graden)</label>
+                    <input type="number" id="inp-dec" step="0.01" value="11.0">
+                    <div style="font-size:0.6rem; color:#666; margin-top:3px;">Zon in april ~11.0°. Vega = 38.78°</div>
+                </div>
+            </div>
+
+            <div class="viz-panel">
+                <canvas id="skyCanvas" width="400" height="200"></canvas>
+                <div class="horizon-line" style="width: 420px;"></div>
+                <div class="viz-label">
+                    ELEVATIE: <span id="viz-alt" style="font-weight:bold; font-size:1.2rem;">0.00°</span><br>
+                    <span style="font-size:0.6rem; opacity:0.6;">(Positief = Boven Horizon / Negatief = Onder Horizon)</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="math-panel">
+            <div class="math-title">DEEP MATH // COÖRDINATENTRANSFORMATIE MOTOR</div>
+            <div class="math-grid">
+                <div>
+                    <div class="math-step"><span class="step-label">1. JULIAANSE DATUM (JD)</span><span class="step-val" id="out-jd">0</span></div>
+                    <div class="math-step"><span class="step-label">2. GREENWICH MEAN SIDEREAL TIME (GMST)</span><span class="step-val" id="out-gmst">0.00°</span></div>
+                    <div class="math-step"><span class="step-label">3. LOCAL SIDEREAL TIME (LST = GMST + Lengtegraad)</span><span class="step-val" id="out-lst">0.00°</span></div>
+                </div>
+                <div>
+                    <div class="math-step"><span class="step-label">4. UURHOEK (H = LST - RA)</span><span class="step-val" id="out-h">0.00°</span></div>
+                    <div class="math-step" style="border-top: 1px solid var(--border); padding-top:10px; margin-top:10px;">
+                        <span class="step-label">5. ELEVATIE FORMULE (sin(h) = sin(ϕ)sin(δ) + cos(ϕ)cos(δ)cos(H))</span>
+                        <span class="final-val" id="out-alt">0.00°</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <div>STATUS: Wiskundige Lock Actief</div>
+            <div style="font-weight: bold; letter-spacing: 1px;">OPERATOR: RIANNE GOIJARTS</div>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elementen
+        const inLat = document.getElementById('inp-lat');
+        const inLon = document.getElementById('inp-lon');
+        const inTime = document.getElementById('inp-time');
+        const inRA = document.getElementById('inp-ra');
+        const inDec = document.getElementById('inp-dec');
+
+        const outJD = document.getElementById('out-jd');
+        const outGMST = document.getElementById('out-gmst');
+        const outLST = document.getElementById('out-lst');
+        const outH = document.getElementById('out-h');
+        const outAlt = document.getElementById('out-alt');
+        const vizAlt = document.getElementById('viz-alt');
+
+        const canvas = document.getElementById('skyCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Helpers voor wiskunde
+        const DEG2RAD = Math.PI / 180.0;
+        const RAD2DEG = 180.0 / Math.PI;
+
+        function modulo(a, b) { return ((a % b) + b) % b; }
+
+        function calculateAstro() {
+            const lat = parseFloat(inLat.value);
+            const lon = parseFloat(inLon.value);
+            const raHours = parseFloat(inRA.value);
+            const dec = parseFloat(inDec.value);
+            
+            // Datum parse (omzetten naar UTC voor JD)
+            const localDate = new Date(inTime.value);
+            if(isNaN(localDate.getTime())) return;
+
+            // 1. Julian Date (JD)
+            const jd = (localDate.getTime() / 86400000.0) + 2440587.5;
+
+            // 2. GMST (Greenwich Mean Sidereal Time in graden)
+            const T = (jd - 2451545.0) / 36525.0;
+            let gmst = 280.46061837 + 360.98564736629 * (jd - 2451545.0) + T*T*0.000387933 - T*T*T/38710000.0;
+            gmst = modulo(gmst, 360.0);
+
+            // 3. LST (Local Sidereal Time in graden)
+            const lst = modulo(gmst + lon, 360.0);
+
+            // 4. Uurhoek (H in graden) - RA is in uren, dus * 15
+            const raDeg = modulo(raHours * 15.0, 360.0);
+            let hDeg = modulo(lst - raDeg, 360.0);
+            if (hDeg > 180) hDeg -= 360; // Voor weergave is -180 tot 180 fijner
+
+            // 5. Elevatie (h)
+            const latRad = lat * DEG2RAD;
+            const decRad = dec * DEG2RAD;
+            const hRad = hDeg * DEG2RAD;
+
+            const sinAlt = Math.sin(latRad)*Math.sin(decRad) + Math.cos(latRad)*Math.cos(decRad)*Math.cos(hRad);
+            const altDeg = Math.asin(sinAlt) * RAD2DEG;
+
+            // Update DOM Data
+            outJD.innerText = jd.toFixed(5);
+            outGMST.innerText = gmst.toFixed(2) + "°";
+            outLST.innerText = lst.toFixed(2) + "°";
+            outH.innerText = hDeg.toFixed(2) + "°";
+            
+            const altStr = altDeg.toFixed(2) + "°";
+            outAlt.innerText = altStr;
+            vizAlt.innerText = altStr;
+
+            // Update Canvas Visualisatie
+            drawSky(altDeg);
+        }
+
+        function drawSky(altDeg) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const cx = canvas.width / 2;
+            const cy = canvas.height; // Horizon is at the bottom of the canvas
+            const radius = 180;
+
+            // Achtergrond raster (gradenlijnen)
+            ctx.strokeStyle = 'rgba(0, 255, 65, 0.1)';
+            ctx.beginPath();
+            for(let i = 15; i < 90; i+=15) {
+                ctx.arc(cx, cy, radius * (1 - i/90), Math.PI, 0);
+            }
+            ctx.stroke();
+
+            // Teken de hemellichaam positie (Simpele 2D projectie op basis van hoogte)
+            // We plotten hem langs een boog voor visuele representatie
+            let plotAngle = altDeg;
+            if (plotAngle < -90) plotAngle = -90; // Limiteer visueel
+            if (plotAngle > 90) plotAngle = 90;
+
+            // Converteer hoogte naar XY. 90 graden = recht omhoog (PI/2), 0 graden = rechts (0 of PI)
+            // Voor visualisatie zetten we hem op de as, simpelweg als een hoek vanuit de horizon
+            const drawAngle = plotAngle * DEG2RAD;
+            const x = cx + radius * Math.cos(Math.PI + drawAngle); // we draw from left horizon for positive
+            const y = cy - radius * Math.sin(Math.abs(drawAngle)); // Absolutie waarde, want hij moet niet onder de canvas verdwijnen tenzij we dat willen.
+            
+            // Lijn vanuit middelpunt
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.lineTo(x, y);
+            ctx.strokeStyle = altDeg > 0 ? '#ffcc00' : '#ff3366';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Ster/Zon Dot
+            ctx.beginPath();
+            ctx.arc(x, y, 8, 0, 2 * Math.PI);
+            ctx.fillStyle = altDeg > 0 ? '#ffcc00' : '#111111';
+            ctx.fill();
+            ctx.strokeStyle = altDeg > 0 ? '#ffffff' : '#ff3366';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Label
+            ctx.fillStyle = '#fff';
+            ctx.font = '12px monospace';
+            ctx.fillText(altDeg.toFixed(1) + "°", x + 12, y - 10);
+        }
+
+        // Event Listeners
+        [inLat, inLon, inTime, inRA, inDec].forEach(input => {
+            input.addEventListener('input', calculateAstro);
+            input.addEventListener('change', calculateAstro);
+        });
+
+        // Init
+        calculateAstro();
+    </script>
+</body>
+</html>

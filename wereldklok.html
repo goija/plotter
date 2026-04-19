@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Laren Command Center | Network Health Monitor</title>
+    <title>Laren Command Center | 95.7 Gbps Core</title>
     <style>
         :root {
             --bg: #020617;
@@ -14,78 +14,107 @@
             --accent: #00f2ff;
             --solar: #fbbf24;
             --nl-node: #22c55e;
+            --dim: #64748b;
             --danger: #ef4444;
         }
 
         body {
             margin: 0; background: var(--bg); color: var(--text);
-            font-family: 'Inter', system-ui, sans-serif;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
             display: flex; flex-direction: column; height: 100vh; overflow: hidden;
         }
 
+        /* HEADER */
         header {
             display: flex; justify-content: space-between; align-items: center;
             padding: 15px 25px; border-bottom: 1px solid var(--border); background: var(--panel);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5); z-index: 10;
         }
 
-        .logo-text { font-weight: bold; color: var(--master); letter-spacing: 2px; }
-
+        .logo-group { display: flex; flex-direction: column; }
+        .logo-text { font-weight: bold; color: var(--master); letter-spacing: 2px; font-size: 1.1rem; }
+        
         #search-box {
             background: #020617; border: 1px solid var(--border); color: white;
-            padding: 8px 15px; border-radius: 6px; width: 250px; outline: none;
+            padding: 10px 15px; border-radius: 6px; width: 320px; outline: none;
+            font-size: 0.85rem; transition: all 0.3s;
         }
+        #search-box:focus { border-color: var(--accent); box-shadow: 0 0 10px rgba(0, 242, 255, 0.2); }
 
-        main { flex: 1; overflow-y: auto; padding: 20px; }
+        /* MAIN CONTENT */
+        main { flex: 1; overflow-y: auto; padding: 20px; box-sizing: border-box; }
 
         .node-grid {
             display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
             gap: 15px; max-width: 1800px; margin: 0 auto;
         }
 
+        /* CARDS */
         .node-card {
             background: var(--panel); border: 1px solid var(--border);
-            border-radius: 10px; padding: 18px; position: relative;
+            border-radius: 12px; padding: 20px; position: relative; transition: 0.2s;
         }
 
         .node-card.master {
             grid-column: 1 / -1; border: 2px solid var(--master);
-            background: linear-gradient(90deg, rgba(250,204,21,0.1) 0%, rgba(15,23,42,1) 100%);
-            margin-bottom: 15px;
+            background: linear-gradient(90deg, rgba(250,204,21,0.12) 0%, rgba(15,23,42,1) 100%);
+            margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;
         }
 
-        .node-card.nl-special { border-color: var(--nl-node); }
+        .node-card.nl-special { border: 1px solid var(--nl-node); background: rgba(34, 197, 94, 0.02); }
 
-        /* Network Metrics Styling */
-        .network-stats {
+        /* LABELS */
+        .badge {
+            font-size: 0.6rem; font-weight: 800; padding: 3px 8px; border-radius: 4px;
+            background: rgba(0, 242, 255, 0.1); color: var(--accent);
+            text-transform: uppercase; margin-bottom: 10px; display: inline-block;
+        }
+        .nl-special .badge { background: rgba(34, 197, 94, 0.1); color: var(--nl-node); }
+        .master .badge { background: var(--master); color: #000; }
+
+        /* TIME & SOLAR */
+        .time-standard { font-family: monospace; font-size: 1.8rem; font-weight: bold; margin: 5px 0; }
+        .master .time-standard { font-size: 4rem; color: var(--master); }
+
+        .solar-container {
+            margin-top: 15px; padding: 10px; background: rgba(251, 191, 36, 0.05);
+            border-left: 3px solid var(--solar); border-radius: 0 8px 8px 0;
+        }
+        .solar-label { font-size: 0.6rem; color: var(--solar); text-transform: uppercase; font-weight: bold; }
+        .solar-val { font-family: monospace; font-size: 1.2rem; color: var(--solar); }
+
+        /* NETWORK METRICS */
+        .metrics-grid {
             display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
-            margin-top: 15px; padding-top: 10px; border-top: 1px dashed var(--border);
+            margin-top: 15px; border-top: 1px dashed var(--border); padding-top: 15px;
             font-family: monospace; font-size: 0.75rem;
         }
+        .m-item { display: flex; flex-direction: column; }
+        .m-lab { color: var(--dim); font-size: 0.6rem; text-transform: uppercase; }
+        .m-val { color: var(--accent); font-weight: bold; }
+        .master .m-val { color: var(--master); }
 
-        .metric { display: flex; flex-direction: column; }
-        .m-label { color: var(--dim); font-size: 0.6rem; text-transform: uppercase; }
-        .m-value { color: var(--accent); font-weight: bold; }
+        /* SPEEDBAR */
+        .speed-wrap { grid-column: 1 / -1; margin-top: 5px; }
+        .bar-bg { width: 100%; height: 6px; background: #1e293b; border-radius: 3px; overflow: hidden; margin-top: 5px; }
+        .bar-fill { height: 100%; background: var(--accent); transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
+        .master .bar-fill { background: var(--master); box-shadow: 0 0 10px var(--master); }
 
-        .speed-bar-bg { width: 100%; height: 4px; background: #1e293b; border-radius: 2px; margin-top: 4px; overflow: hidden; }
-        .speed-bar-fill { height: 100%; width: 0%; background: var(--accent); transition: width 0.5s ease; }
+        .critical { animation: pulse-red 1.5s infinite; }
+        @keyframes pulse-red { 50% { color: var(--danger); } }
 
-        .master .m-value { color: var(--master); }
-        .master .speed-bar-fill { background: var(--master); }
-
-        .time-standard { font-family: monospace; font-size: 1.5rem; color: var(--text); font-weight: bold; }
-        .master .time-standard { font-size: 3rem; color: var(--master); }
-
-        .solar-box { margin-top: 10px; color: var(--solar); font-size: 0.8rem; font-family: monospace; }
-        
-        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
     </style>
 </head>
 <body>
 
     <header>
-        <div class="logo-text">LAREN_CORE // NETWORK_SYNC</div>
-        <input type="text" id="search-box" placeholder="Filter op stad of regio...">
+        <div class="logo-group">
+            <div class="logo-text">LAREN_CORE_SYSTEMS</div>
+            <div style="font-size: 0.6rem; color: var(--dim); letter-spacing: 1px;">PRECISION NETWORK & SOLAR MONITOR</div>
+        </div>
+        <input type="text" id="search-box" placeholder="Filter node, stad of regio...">
     </header>
 
     <main>
@@ -94,94 +123,101 @@
 
     <script>
         const nodesData = [
-            { id: "MASTER", name: "Laren (NH)", lon: 5.22, isMaster: true, type: "CENTRAL_HUB" },
-            { id: 201, name: "Hilversum", lon: 5.17, type: "MEDIA_GATEWAY", isNL: true },
-            { id: 202, name: "Zwolle", lon: 6.09, type: "REGIONAL_HUB", isNL: true },
-            { id: 203, name: "Franeker", lon: 5.54, type: "NORTH_NODE", isNL: true },
-            { id: 204, name: "Scherpenisse", lon: 4.10, type: "ZEELAND_EDGE", isNL: true },
-            { id: 205, name: "Tholen", lon: 4.22, type: "ZEELAND_EDGE", isNL: true }
+            { id: "MASTER", name: "Laren (NH) Central Core", lon: 5.22, isMaster: true, type: "BACKBONE_HUB", fixedSpeed: 95.7 },
+            { id: 201, name: "Hilversum Gateway", lon: 5.17, type: "MEDIA_GATEWAY", isNL: true },
+            { id: 202, name: "Zwolle Hub", lon: 6.09, type: "REGIONAL_HUB", isNL: true },
+            { id: 203, name: "Franeker Node", lon: 5.54, type: "NORTH_SERVER", isNL: true },
+            { id: 204, name: "Scherpenisse Edge", lon: 4.10, type: "ZEELAND_PRECISION", isNL: true },
+            { id: 205, name: "Tholen Edge", lon: 4.22, type: "ZEELAND_PRECISION", isNL: true }
         ];
 
-        // Vul aan tot 90 nodes
+        // Genereer 90 nodes totaal
         for (let i = nodesData.length; i < 90; i++) {
-            nodesData.push({ id: 300 + i, name: "Satellite Node", lon: (Math.random() * 360 - 180), type: "CLOUD_EDGE", isNL: false });
+            nodesData.push({
+                id: 300 + i,
+                name: `Global Satellite ${i}`,
+                lon: (Math.random() * 360 - 180),
+                type: "CLOUD_SATELLITE",
+                isNL: false
+            });
         }
 
-        function calculateSolarTime(longitude) {
+        function getSolarTime(lon) {
             const now = new Date();
-            const utcMin = (now.getUTCHours() * 60) + now.getUTCMinutes() + (now.getUTCSeconds() / 60);
-            let solarMin = (utcMin + (longitude * 4) + 1440) % 1440;
-            const h = Math.floor(solarMin / 60);
-            const m = Math.floor(solarMin % 60);
-            return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+            const utc = (now.getUTCHours() * 60) + now.getUTCMinutes() + (now.getUTCSeconds() / 60);
+            let sol = (utc + (lon * 4) + 1440) % 1440;
+            const h = Math.floor(sol / 60);
+            const m = Math.floor(sol % 60);
+            const s = Math.floor((sol * 60) % 60);
+            return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
         }
 
-        function buildGrid(filter = "") {
+        function render(filter = "") {
             const container = document.getElementById('nodeContainer');
-            const filtered = nodesData.filter(n => n.name.toLowerCase().includes(filter));
+            const filtered = nodesData.filter(n => n.name.toLowerCase().includes(filter) || n.type.toLowerCase().includes(filter));
             
             container.innerHTML = filtered.map(node => `
                 <div class="node-card ${node.isMaster ? 'master' : ''} ${node.isNL ? 'nl-special' : ''}">
-                    <div style="font-size:0.6rem; color:var(--dim)">${node.type} // ID_${node.id}</div>
-                    <div class="city-name">${node.name}</div>
-                    <div class="time-standard" id="st-${node.id}">00:00:00</div>
-                    
-                    <div class="solar-box">SOLAR: <span id="sol-${node.id}">00:00</span></div>
+                    <div class="node-content">
+                        <div class="badge">${node.type} // ${node.isMaster ? 'CORE' : 'ID_'+node.id}</div>
+                        <div class="city-name" style="font-weight:bold; ${node.isMaster ? 'font-size:1.5rem; color:var(--master)' : ''}">${node.name}</div>
+                        <div class="time-standard" id="st-${node.id}">00:00:00</div>
+                        
+                        <div class="solar-container">
+                            <div class="solar-label">TRUE SOLAR TIME (LON: ${node.lon}°)</div>
+                            <div class="solar-val" id="sol-${node.id}">00:00:00</div>
+                        </div>
 
-                    <div class="network-stats">
-                        <div class="metric">
-                            <span class="m-label">Latency</span>
-                            <span class="m-value" id="lt-${node.id}">0ms</span>
-                        </div>
-                        <div class="metric">
-                            <span class="m-label">Jitter</span>
-                            <span class="m-value" id="jt-${node.id}">±0ms</span>
-                        </div>
-                        <div class="metric" style="grid-column: 1 / -1">
-                            <span class="m-label">Speed / Bandwidth</span>
-                            <span class="m-value" id="sp-${node.id}">0 Gbps</span>
-                            <div class="speed-bar-bg"><div class="speed-bar-fill" id="pb-${node.id}"></div></div>
+                        <div class="metrics-grid">
+                            <div class="m-item"><span class="m-lab">Latency</span><span class="m-val" id="lt-${node.id}">0ms</span></div>
+                            <div class="m-item"><span class="m-lab">Jitter</span><span class="m-val" id="jt-${node.id}">±0ms</span></div>
+                            <div class="speed-wrap">
+                                <span class="m-lab">Speed / Bandwidth</span>
+                                <div style="display:flex; justify-content:space-between">
+                                    <span class="m-val" id="sp-${node.id}" style="${node.isMaster ? 'font-size:1.4rem' : ''}">0 Gbps</span>
+                                    ${node.isMaster ? '<span style="color:var(--danger); font-size:0.6rem; font-weight:bold">CRITICAL_LOAD</span>' : ''}
+                                </div>
+                                <div class="bar-bg"><div class="bar-fill" id="pb-${node.id}"></div></div>
+                            </div>
                         </div>
                     </div>
                 </div>
             `).join('');
         }
 
-        function update() {
+        function sync() {
             const now = new Date();
             nodesData.forEach(node => {
-                // Tijd Update
                 const st = document.getElementById(`st-${node.id}`);
                 const sol = document.getElementById(`sol-${node.id}`);
-                if (st) st.innerText = now.toLocaleTimeString('nl-NL', { hour12: false });
-                if (sol) sol.innerText = calculateSolarTime(node.lon);
+                if (!st) return;
 
-                // Network Simulation
-                let lat, jitter, speed;
+                st.innerText = now.toLocaleTimeString('nl-NL', { hour12: false });
+                sol.innerText = getSolarTime(node.lon);
+
+                let lat, jit, speed;
                 if(node.isMaster) {
-                    lat = (Math.random() * 2).toFixed(1);
-                    jitter = (Math.random() * 0.1).toFixed(2);
-                    speed = (95 + Math.random() * 5).toFixed(1);
+                    lat = (0.2 + Math.random() * 0.1).toFixed(2);
+                    jit = (0.01 + Math.random() * 0.05).toFixed(3);
+                    speed = node.fixedSpeed; // De magische 95.7 Gbps
                 } else {
-                    lat = Math.floor(Math.random() * 40) + 5;
-                    jitter = (Math.random() * 5).toFixed(1);
-                    speed = (Math.random() * 10).toFixed(1);
+                    lat = Math.floor(Math.random() * 35) + 5;
+                    jit = (Math.random() * 4).toFixed(1);
+                    speed = (Math.random() * 8 + 1).toFixed(1);
                 }
 
-                if(document.getElementById(`lt-${node.id}`)) {
-                    document.getElementById(`lt-${node.id}`).innerText = `${lat}ms`;
-                    document.getElementById(`jt-${node.id}`).innerText = `±${jitter}ms`;
-                    document.getElementById(`sp-${node.id}`).innerText = `${speed} Gbps`;
-                    document.getElementById(`pb-${node.id}`).style.width = `${(speed/100)*100}%`;
-                }
+                document.getElementById(`lt-${node.id}`).innerText = `${lat}ms`;
+                document.getElementById(`jt-${node.id}`).innerText = `±${jit}ms`;
+                document.getElementById(`sp-${node.id}`).innerText = `${speed} Gbps`;
+                document.getElementById(`pb-${node.id}`).style.width = `${(speed / (node.isMaster ? 100 : 10)) * 100}%`;
             });
         }
 
-        document.getElementById('search-box').addEventListener('input', e => buildGrid(e.target.value.toLowerCase()));
+        document.getElementById('search-box').addEventListener('input', e => render(e.target.value.toLowerCase()));
 
-        buildGrid();
-        setInterval(update, 1000);
-        update();
+        render();
+        setInterval(sync, 1000);
+        sync();
     </script>
 </body>
 </html>

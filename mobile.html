@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>VORTEX | Mobile P2P</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root { --bg: #050810; --cyan: #00d2ff; --green: #0f0; --red: #ff4444; }
+        body { 
+            background-color: var(--bg); color: var(--cyan); 
+            font-family: 'Courier New', monospace; margin: 0; padding: 15px;
+            display: flex; flex-direction: column; gap: 15px;
+        }
+        h2 { font-size: 1.2rem; margin: 0 0 10px 0; text-align: center; border-bottom: 1px solid #333; padding-bottom: 10px;}
+        
+        .box { background: #0a0f1d; border: 1px solid var(--cyan); border-radius: 8px; padding: 12px; }
+        .label { font-size: 0.8rem; font-weight: bold; color: #888; margin-bottom: 5px; display: block; }
+        
+        textarea { 
+            width: 100%; height: 80px; background: #000; color: #fff; 
+            border: 1px solid #333; border-radius: 4px; padding: 8px; 
+            font-family: monospace; font-size: 10px; box-sizing: border-box;
+        }
+        
+        button { 
+            width: 100%; background: #000; color: var(--cyan); 
+            border: 2px solid var(--cyan); border-radius: 6px; padding: 15px; 
+            font-size: 1.1rem; font-weight: bold; margin-top: 10px; cursor: pointer;
+        }
+        button:active { background: var(--cyan); color: #000; }
+
+        canvas { background: #000; border-radius: 6px; margin-top: 10px; width: 100%; max-height: 250px;}
+
+        /* Debug Console */
+        #debugLog { 
+            background: #000; color: #aaa; font-size: 9px; height: 100px; 
+            overflow-y: auto; padding: 8px; border: 1px solid #333; border-radius: 4px;
+        }
+        .log-ok { color: var(--green); }
+        .log-err { color: var(--red); }
+    </style>
+</head>
+<body>
+
+    <h2>VORTEX MOBILE LINK</h2>
+
+    <div class="box">
+        <span class="label">1. PLAK C++ OFFER HIER:</span>
+        <textarea id="offerInput" placeholder="v=0..."></textarea>
+        <button onclick="createAnswer()">🔗 GENEREER ANSWER</button>
+    </div>
+
+    <div class="box">
+        <span class="label">2. KOPIEER DIT NAAR TERMINAL:</span>
+        <textarea id="answerOutput" readonly placeholder="Wacht op generatie..."></textarea>
+    </div>
+
+    <div class="box">
+        <span class="label">3. LIVE TELEMETRIE:</span>
+        <canvas id="liveChart"></canvas>
+    </div>
+
+    <div class="box">
+        <span class="label">SYSTEM CONSOLE:</span>
+        <div id="debugLog">Systeem opgestart...<br></div>
+    </div>
+
+    <script>
+        const logEl = document.getElementById('debugLog');
+        function log(msg, type='info') {
+            const color = type === 'ok' ? 'log-ok' : type === 'err' ? 'log-err' : '';
+            logEl.innerHTML += `<span class="${color}">> ${msg}</span><br>`;
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        // Chart.js Setup (Mobile Optimized)
+        const ctx = document.getElementById('liveChart').getContext('2d');
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: { labels: Array(50).fill(''), datasets: [{ label: 'Data', data: Array(50).fill(0), borderColor: '#00d2ff', borderWidth: 2, pointRadius: 0 }] },
+            options: { animation: false, responsive: true, maintainAspectRatio: false, scales: { x: {display: false} } }
+        });
+
+        let pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+
+        // Debugging Connection States
+        pc.oniceconnectionstatechange = () => log(`ICE State: ${pc.iceConnectionState}`);
+        pc.onconnectionstatechange = () => {
+            log(`P2P State: ${pc.connectionState}`, pc.connectionState === 'connected' ? 'ok' : 'info');
+        };
+
+        // Luister naar de Data Channel
+        pc.ondatachannel = (event) => {
+            log("Data Channel verzoek ontvangen!", "ok");
+            const channel = event.channel;
+            
+            channel.onopen = () => log(`Channel '${channel.label}' is OPEN!`, "ok");
+            channel.onclose = () => log("Channel gesloten.", "err");
+            channel.onerror = (e) => log(`Channel Error: ${e.error}`, "err");
+
+            channel.onmessage = (e) => {
+                let value = 0;
+                
+                // Probeer te raden in welk formaat C++ het stuurt
+                if (typeof e.data === 'string') {
+                    value = parseFloat(e.data); // Als C++ tekst stuurt
+                } else {
+                    // Als C++ binaire data stuurt
+                    const floatView = new Float32Array(e.data);
+                    value = floatView[0]; 
+                }
+
+                // Als het geen geldig getal is, negeer het om crashes te voorkomen
+                if(isNaN(value)) return;
+
+                // Update Grafiek
+                chart.data.datasets[0].data.push(value);
+                chart.data.datasets[0].data.shift();
+                chart.update();
+            };
+        };
+
+        async function createAnswer() {
+            const offerStr = document.getElementById('offerInput').value.trim();
+            if (!offerStr) { log("FOUT: Geen Offer gevonden.", "err"); return; }
+
+            log("Start Handshake...");
+            try {
+                await pc.setRemoteDescription({ type: 'offer', sdp: offerStr });
+                const answer = await pc.createAnswer();
+                await pc.setLocalDescription(answer);
+
+                pc.onicegatheringstatechange = () => {
+                    log(`ICE Gathering: ${pc.iceGatheringState}`);
+                    if (pc.iceGatheringState === 'complete') {
+                        document.getElementById('answerOutput').value = pc.localDescription.sdp;
+                        log("Answer is KLAAR! Kopieer dit.", "ok");
+                    }
+                };
+
+                if (pc.iceGatheringState === 'complete') {
+                    document.getElementById('answerOutput').value = pc.localDescription.sdp;
+                    log("Answer is KLAAR! Kopieer dit.", "ok");
+                }
+            } catch (err) {
+                log(`Handshake Error: ${err.message}`, "err");
+            }
+        }
+    </script>
+</body>
+</html>

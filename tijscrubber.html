@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VORTEX // SEASONAL_MASTER_v50.0</title>
+    <style>
+        :root {
+            --bg: #000400; --panel: #000f00; --accent: #00ff41; 
+            --solar: #ffcc00; --utc: #ffffff; --moon: #cbd5e0; 
+            --vega: #ffffff; --orion: #00d4ff; --border: #003300; 
+            --night: #050515; --gray: #ff00ff;
+        }
+
+        body {
+            margin: 0; background: var(--bg); color: var(--accent);
+            font-family: 'JetBrains Mono', monospace;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh;
+            padding: 20px; box-sizing: border-box; transition: background 0.5s ease;
+        }
+
+        body.is-night { background: var(--night); }
+
+        .dashboard {
+            background: rgba(0, 15, 0, 0.9);
+            border: 2px solid var(--accent);
+            box-shadow: 0 0 40px rgba(0, 255, 65, 0.2);
+            width: 100%; max-width: 950px;
+            border-radius: 8px; overflow: hidden; backdrop-filter: blur(10px);
+        }
+
+        .header {
+            background: var(--panel); padding: 15px 25px;
+            border-bottom: 2px solid var(--accent);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+
+        .season-display {
+            font-size: 1.2rem; font-weight: bold; color: var(--solar);
+            text-shadow: 0 0 10px var(--solar); text-transform: uppercase;
+        }
+
+        .main-display {
+            padding: 30px 25px; text-align: center;
+            border-bottom: 1px solid var(--border);
+            display: flex; justify-content: space-around; align-items: center;
+        }
+
+        .solar-val { font-size: 4rem; font-weight: 900; color: var(--solar); font-variant-numeric: tabular-nums; line-height: 1; }
+        .utc-val { font-size: 2.8rem; font-weight: bold; color: var(--utc); opacity: 0.7; font-variant-numeric: tabular-nums; }
+
+        .controls { padding: 25px; background: rgba(0,0,0,0.7); border-bottom: 1px solid var(--border); }
+        
+        .control-group { margin-bottom: 25px; }
+        .control-label { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--accent); margin-bottom: 10px; opacity: 0.8; }
+        
+        input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 6px; background: var(--border); border-radius: 3px; }
+        input[type=range]::-webkit-slider-thumb {
+            height: 22px; width: 12px; border-radius: 2px; background: var(--accent);
+            cursor: pointer; -webkit-appearance: none; margin-top: -8px; box-shadow: 0 0 10px var(--accent);
+        }
+        #day-slider::-webkit-slider-thumb { background: var(--solar); box-shadow: 0 0 10px var(--solar); }
+
+        .data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding: 25px; }
+        .data-panel { background: rgba(0, 20, 0, 0.6); border: 1px solid var(--border); padding: 20px; border-radius: 4px; }
+        .panel-title { font-size: 0.8rem; text-transform: uppercase; border-bottom: 1px solid var(--accent); padding-bottom: 8px; margin-bottom: 15px; }
+
+        .logic-row { margin-bottom: 10px; font-size: 0.95rem; word-break: break-all; }
+        .dec { color: #fff; font-weight: bold; font-size: 1.3rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; margin-bottom: 15px; }
+        .bin { color: var(--accent); } .gry { color: var(--gray); }
+
+        .celestial-row { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 0.95rem; border-bottom: 1px dashed var(--border); padding-bottom: 6px;}
+        .vis-badge { font-size: 0.65rem; padding: 2px 6px; border-radius: 2px; background: rgba(255,255,255,0.1); width: 100px; text-align: center; }
+        .vis-plus { background: var(--accent); color: #000; font-weight: bold; }
+
+        .footer { padding: 12px 25px; background: var(--panel); border-top: 1px solid var(--accent); font-size: 0.75rem; display: flex; justify-content: space-between; }
+    </style>
+</head>
+<body>
+
+    <div class="dashboard">
+        <div class="header">
+            <div>VORTEX_MASTER_v50.0 // LAREN</div>
+            <div class="season-display" id="season-label">LENTE</div>
+            <div id="date-label" style="font-size: 0.8rem;">19 APRIL</div>
+        </div>
+
+        <div class="main-display">
+            <div class="time-block">
+                <div style="font-size:0.7rem; opacity:0.6;">UTC / GMT</div>
+                <div class="utc-val" id="utc-display">00:00:00</div>
+            </div>
+            <div class="time-block">
+                <div style="font-size:0.7rem; color:var(--solar);">WARE ZONNETIJD</div>
+                <div class="solar-val" id="time-display">12:00:00</div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <div class="control-label">
+                    <span>MACRO_SCRUBBER: DAG VAN HET JAAR</span>
+                    <span id="day-num">DAG 109</span>
+                </div>
+                <input type="range" id="day-slider" min="1" max="365" value="109">
+            </div>
+            <div class="control-group">
+                <div class="control-label">
+                    <span>MICRO_SCRUBBER: ROTATIE_CYCLUS (SECONDEN)</span>
+                    <span id="sec-num">43200s</span>
+                </div>
+                <input type="range" id="time-slider" min="0" max="86399" value="43200">
+            </div>
+        </div>
+
+        <div class="data-grid">
+            <div class="data-panel">
+                <div class="panel-title">24-Bit Logica</div>
+                <div class="logic-row dec" id="dec-val">D: 8.388.608</div>
+                <div class="logic-row bin" id="bin-val">B: 1000...</div>
+                <div class="logic-row gry" id="gry-val">G: 1100...</div>
+            </div>
+
+            <div class="data-panel">
+                <div class="panel-title">Hemelse Elevatie (Laren 52.2°N)</div>
+                <div class="celestial-row" style="color:var(--solar)">
+                    <span>ZON</span>
+                    <div><span id="alt-zon">0.0°</span> <span class="vis-badge" id="vis-zon">ONDER HORIZON</span></div>
+                </div>
+                <div class="celestial-row" style="color:var(--moon)">
+                    <span>MAAN</span>
+                    <div><span id="alt-moon">0.0°</span> <span class="vis-badge" id="vis-moon">ONDER HORIZON</span></div>
+                </div>
+                <div class="celestial-row" style="color:var(--vega)">
+                    <span>VEGA</span>
+                    <div><span id="alt-vega">0.0°</span> <span class="vis-badge" id="vis-vega">ONDER HORIZON</span></div>
+                </div>
+                <div class="celestial-row" style="color:var(--orion)">
+                    <span>ORION</span>
+                    <div><span id="alt-orion">0.0°</span> <span class="vis-badge" id="vis-orion">ONDER HORIZON</span></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <div id="env-status">DAGLICHT_ACTIEF</div>
+            <div>OPERATOR: RIANNE GOIJARTS</div>
+        </div>
+    </div>
+
+    <script>
+        const daySlider = document.getElementById('day-slider');
+        const timeSlider = document.getElementById('time-slider');
+        const BIT_RANGE = 16777216;
+
+        function toGray(n) { return n ^ (n >> 1); }
+        function toBinary(n, bits=24) { 
+            return n.toString(2).padStart(bits, '0').match(/.{1,4}/g).join(' '); 
+        }
+
+        function formatTime(totalSeconds) {
+            const h = Math.floor(totalSeconds / 3600);
+            const m = Math.floor((totalSeconds % 3600) / 60);
+            const s = Math.floor(totalSeconds % 60);
+            return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        }
+
+        function getSeason(d) {
+            if (d < 80 || d >= 355) return "WINTER";
+            if (d >= 80 && d < 172) return "LENTE";
+            if (d >= 172 && d < 266) return "ZOMER";
+            return "HERFST";
+        }
+
+        function update() {
+            const d = parseInt(daySlider.value);
+            const t = parseInt(timeSlider.value);
+            const frac = t / 86400;
+
+            // Seizoen & Datum
+            const date = new Date(2026, 0);
+            date.setDate(d);
+            document.getElementById('season-label').innerText = getSeason(d);
+            document.getElementById('date-label').innerText = date.toLocaleDateString('nl-NL', {day:'numeric', month:'long'}).toUpperCase();
+            document.getElementById('day-num').innerText = `DAG ${d}`;
+            document.getElementById('sec-num').innerText = `${t}s`;
+
+            // Tijden
+            document.getElementById('time-display').innerText = formatTime(t);
+            let utc = (t - 1241) % 86400; if(utc < 0) utc += 86400;
+            document.getElementById('utc-display').innerText = formatTime(utc);
+
+            // Logica
+            const dec = Math.floor(frac * BIT_RANGE);
+            document.getElementById('dec-val').innerText = `D: ${dec.toLocaleString('nl-NL')}`;
+            document.getElementById('bin-val').innerText = `B: ${toBinary(dec)}`;
+            document.getElementById('gry-val').innerText = `G: ${toBinary(toGray(dec))}`;
+
+            // Astronomie (Laren 52.26N)
+            // Declinatie varieert tussen -23.5 en +23.5 graden over het jaar
+            const declinatie = 23.45 * Math.sin((2 * Math.PI / 365) * (d - 81));
+            const maxAlt = 90 - 52.26 + declinatie;
+            const minAlt = - (90 - 52.26 - declinatie);
+            
+            // Zon curve
+            const zonAlt = ((maxAlt - minAlt) / 2) * Math.sin(frac * 2 * Math.PI - Math.PI/2) + ((maxAlt + minAlt) / 2);
+            
+            document.getElementById('alt-zon').innerText = zonAlt.toFixed(1) + '°';
+            
+            // Overige lichamen (gesimuleerde sinusgolven)
+            const mAlt = 50 * Math.sin(frac * 2 * Math.PI + 5);
+            const vAlt = 80 * Math.sin(frac * 2 * Math.PI + 1);
+            const oAlt = 45 * Math.sin(frac * 2 * Math.PI + 3.5);
+
+            const setCel = (id, val, badgeId) => {
+                document.getElementById(id).innerText = val.toFixed(1) + '°';
+                const b = document.getElementById(badgeId);
+                if(val > 0) { b.innerText = 'ZICHTBAAR'; b.classList.add('vis-plus'); }
+                else { b.innerText = 'ONDER HORIZON'; b.classList.remove('vis-plus'); }
+            };
+
+            setCel('alt-zon', zonAlt, 'vis-zon');
+            setCel('alt-moon', mAlt, 'vis-moon');
+            setCel('alt-vega', vAlt, 'vis-vega');
+            setCel('alt-orion', oAlt, 'vis-orion');
+
+            // Nacht status
+            const isNight = zonAlt < -0.8;
+            document.body.classList.toggle('is-night', isNight);
+            document.getElementById('env-status').innerText = isNight ? '☾ NACHT_LOCK ACTIEF' : '☀ DAGLICHT_ACTIEF';
+            document.getElementById('env-status').style.color = isNight ? '#5c5cff' : 'var(--solar)';
+        }
+
+        [daySlider, timeSlider].forEach(s => s.addEventListener('input', update));
+        update();
+    </script>
+</body>
+</html>

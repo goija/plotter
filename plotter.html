@@ -2,236 +2,209 @@
 <html lang="nl">
 <head>
     <meta charset="UTF-8">
-    <title>Gray Code Encoder - Pro Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VORTEX // MASTER_INTEGRATION_v30.0</title>
     <style>
         :root {
-            --bg: #05070a;
-            --panel: #0f172a;
-            --accent: #00f2ff;
-            --border: #1e293b;
-            --text: #f8fafc;
-            --danger: #ef4444;
-            --success: #22c55e;
+            --bg: #000a00; --panel: #001800; --accent: #00ff41; 
+            --solar: #ffcc00; --anti: #ff00ff; --net: #00d4ff; --vega: #ffffff;
+            --border: #004400; --grid: rgba(0, 255, 65, 0.05);
         }
 
         body {
-            margin: 0; background: var(--bg); color: var(--text);
-            font-family: 'Inter', -apple-system, sans-serif; 
-            display: grid;
-            grid-template-columns: 320px 1fr 300px;
-            grid-template-rows: 60px 1fr 200px;
-            height: 100vh; gap: 10px; padding: 10px; box-sizing: border-box;
+            margin: 0; background: var(--bg); color: var(--accent);
+            font-family: 'JetBrains Mono', monospace;
+            display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+            background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+            background-size: 30px 30px;
         }
 
-        header { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); padding: 0 20px; background: var(--panel); border-radius: 8px; }
-        
-        .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; }
-        
-        #main-render { grid-column: 2; grid-row: 2; position: relative; background: #000; }
-        canvas#glcanvas { width: 100%; height: 100%; }
-
-        .sidebar-left { grid-column: 1; grid-row: 2 / 4; display: flex; flex-direction: column; gap: 10px; }
-        .sidebar-right { grid-column: 3; grid-row: 2 / 4; display: flex; flex-direction: column; gap: 10px; }
-        .bottom-bar { grid-column: 2; grid-row: 3; }
-
-        .stat-card { padding: 15px; border-bottom: 1px solid var(--border); }
-        .stat-value { font-family: monospace; font-size: 1.8rem; color: var(--accent); }
-        
-        h2 { font-size: 0.7rem; text-transform: uppercase; color: #64748b; margin: 0 0 10px 0; letter-spacing: 1px; }
-
-        textarea { 
-            width: 100%; height: 70px; background: #020617; color: #94a3b8; 
-            border: 1px solid var(--border); border-radius: 4px; font-size: 10px; 
-            margin-bottom: 8px; resize: none; outline: none; font-family: monospace; padding: 5px;
-            box-sizing: border-box;
-        }
-        
-        button { 
-            width: 100%; padding: 12px; background: var(--accent); color: #000; 
-            border: none; border-radius: 4px; font-weight: bold; cursor: pointer;
-            text-transform: uppercase;
+        header {
+            padding: 10px 20px; background: var(--panel); border-bottom: 2px solid var(--accent);
+            display: flex; justify-content: space-between; align-items: center;
         }
 
-        #log { font-size: 0.75rem; color: #94a3b8; height: 100%; overflow-y: auto; padding: 10px; background: #020617; }
-        .log-entry { border-left: 2px solid var(--accent); padding-left: 8px; margin-bottom: 5px; }
-        .log-err { border-left-color: var(--danger); color: var(--danger); }
+        .master-bar {
+            background: rgba(0, 25, 0, 0.95); display: grid; grid-template-columns: repeat(4, 1fr);
+            padding: 10px; border-bottom: 1px solid var(--border); font-size: 0.75rem; text-align: center;
+        }
+
+        .main-layout { display: grid; grid-template-columns: 1fr 340px; flex: 1; overflow: hidden; }
+
+        .node-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 10px; padding: 12px; overflow-y: auto; border-right: 1px solid var(--border);
+        }
+
+        .card { background: rgba(0,12,0,0.9); border: 1px solid var(--border); padding: 12px; border-radius: 2px; position: relative; }
+        .card:hover { border-color: var(--accent); box-shadow: 0 0 15px rgba(0,255,65,0.2); }
+
+        .section-label { font-size: 0.45rem; opacity: 0.8; text-transform: uppercase; margin: 8px 0 4px 0; border-left: 2px solid var(--accent); padding-left: 5px; }
+        .val-row { display: flex; justify-content: space-between; font-size: 0.65rem; margin-top: 2px; }
+        .clock { font-size: 1.1rem; font-weight: bold; font-variant-numeric: tabular-nums; }
         
-        #sparkline { width: 100%; height: 100px; background: #020617; }
+        .sidebar { padding: 10px; display: flex; flex-direction: column; gap: 12px; background: rgba(0,5,0,0.6); overflow-y: auto; }
+        .side-card { background: rgba(0,25,0,0.85); border: 1px solid var(--border); padding: 12px; border-radius: 4px; }
+
+        .plus { color: var(--accent); }
+        .min { color: #ff3333; }
+
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-thumb { background: var(--accent); }
     </style>
 </head>
 <body>
 
     <header>
-        <div style="font-weight: bold; color: var(--accent);">GRAY CODE ENCODER V5.1</div>
-        <div id="connection-status" style="color: var(--danger); font-size: 0.8rem; font-weight: bold;">STATUS: OFFLINE</div>
+        <div style="font-weight: bold; letter-spacing: 1.5px;">OPERATOR: RIANNE GOIJARTS // TEKTRONIC_V30_COMPLETE</div>
+        <div style="font-size: 0.7rem; color: var(--net);">𝕏_SYNC: ACTIVE // UPLINK: STABLE</div>
     </header>
 
-    <aside class="sidebar-left">
-        <div class="panel" style="flex: 0.8;">
-            <div class="stat-card">
-                <h2>Actuele Hoek</h2>
-                <div class="stat-value" id="angle-display">0.000°</div>
-            </div>
-            <div class="stat-card">
-                <h2>Raw Sensor Data</h2>
-                <div class="stat-value" id="raw-bits" style="font-size: 1.2rem;">0000 0000 0000</div>
-            </div>
-            
-            <div style="padding: 15px;">
-                <h2>WebRTC Handshake</h2>
-                <textarea id="offerInput" placeholder="1. Plak Offer uit terminal (v=0...)"></textarea>
-                <button id="processBtn">Genereer Antwoord</button>
-                <textarea id="answerOutput" readonly style="margin-top: 10px;" placeholder="2. Kopieer dit naar terminal..."></textarea>
-            </div>
-        </div>
-        
-        <div class="panel" style="flex: 0.2;">
-            <div id="log">
-                <div class="log-entry">Dashboard gereed. Wachten op verbinding...</div>
-            </div>
-        </div>
-    </aside>
+    <div class="master-bar">
+        <div>GMT_REF: <span id="gmt-master">00:00:00</span></div>
+        <div>VADC (YR 0): <span id="adc-0">0</span></div>
+        <div>VDC (YR 1000): <span id="adc-1000">0</span></div>
+        <div>SATELLITE: <span id="iss-status" style="color:var(--net)">ISS_TRACKING</span></div>
+    </div>
 
-    <main id="main-render" class="panel">
-        <canvas id="glcanvas"></canvas>
-    </main>
+    <div class="main-layout">
+        <div class="node-grid" id="nodeGrid"></div>
 
-    <aside class="sidebar-right">
-        <div class="panel" style="flex: 1;">
-            <div class="stat-card">
-                <h2>Stabiliteit (Latency)</h2>
-                <canvas id="sparkline"></canvas>
+        <aside class="sidebar">
+            <div class="side-card" style="border-color: var(--net);">
+                <div class="section-label" style="color:var(--net)">🛰️ ISS POSITION TELEMETRY</div>
+                <div class="val-row"><span>LATITUDE:</span><span id="iss-lat">0.0000</span></div>
+                <div class="val-row"><span>LONGITUDE:</span><span id="iss-lon">0.0000</span></div>
+                <div class="val-row"><span>ALTITUDE:</span><span>418.2 km</span></div>
+                <div class="val-row"><span>VELOCITY:</span><span>27,600 km/h</span></div>
             </div>
-            <div class="stat-card">
-                <h2>Netwerk Info</h2>
-                <div id="ice-status" style="font-size: 0.8rem; color: var(--accent);">Staat: Idle</div>
-                <div style="font-size: 0.8rem; margin-top: 5px;">Pakketten: <span id="packet-count">0</span></div>
-            </div>
-        </div>
-    </aside>
 
-    <footer class="bottom-bar panel" style="justify-content: center; padding: 20px;">
-        <div style="color: #64748b; font-size: 0.8rem; text-align: center;">
-            C++ WebRTC Pipeline &bull; libdatachannel &bull; 32-bit Binary Stream
-        </div>
-    </footer>
+            <div class="side-card">
+                <div class="section-label">🌊 ENVIRONMENT (LAREN/NL)</div>
+                <div class="val-row"><span>WATER_LVL:</span><span id="water-lvl">+0.14m NAP</span></div>
+                <div class="val-row"><span>WIND_SPEED:</span><span id="wind-spd">4.8 m/s</span></div>
+                <div class="val-row"><span>HUMIDITY:</span><span>74%</span></div>
+            </div>
+
+            <div class="side-card" style="border-color: #ff4400;">
+                <div class="section-label" style="color:#ff4400">📡 SIGNAL_METRICS</div>
+                <div class="val-row"><span>UPLINK_DELAY:</span><span id="up">22ms</span></div>
+                <div class="val-row"><span>DOWN_DELAY:</span><span id="down">19ms</span></div>
+                <div class="val-row"><span>JITTER:</span><span id="jitter">1.12ms</span></div>
+                <div class="val-row"><span>DROPOUT:</span><span class="plus">0.00%</span></div>
+            </div>
+
+            <div class="side-card" style="border-color: var(--anti);">
+                <div class="section-label" style="color:var(--anti)">𝕏_OPERATOR_DATA</div>
+                <div class="val-row"><span>ID:</span><span>Rianne Goijarts</span></div>
+                <div class="val-row"><span>ROLE:</span><span>Vortex Master Op</span></div>
+                <div class="val-row"><span>LOC:</span><span>Laren, NH, NL</span></div>
+            </div>
+        </aside>
+    </div>
 
     <script>
-        const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
-        let packetCount = 0;
-        let lastValues = new Array(60).fill(0);
+        const nodes = [
+            { name: "Greenwich (UK)", lat: 51.47, lon: 0.00 },
+            { name: "Laren (NH) [M]", lat: 52.22, lon: 5.17 },
+            { name: "Noordpool", lat: 90.00, lon: 0.00 },
+            { name: "Zuidpool", lat: -90.00, lon: 0.00 },
+            { name: "Oude Kerk (AMS)", lat: 52.37, lon: 4.89 },
+            { name: "Pentagon (USA)", lat: 38.87, lon: -77.05 },
+            { name: "Roma (IT)", lat: 41.90, lon: 12.49 },
+            { name: "Zwolle (OV)", lat: 52.51, lon: 6.09 },
+            { name: "Tholen (ZE)", lat: 51.53, lon: 4.22 },
+            { name: "Stonehenge (UK)", lat: 51.17, lon: -1.82 },
+            { name: "Stockholm (SE)", lat: 59.32, lon: 18.06 },
+            { name: "Franeker (FR)", lat: 53.18, lon: 5.54 },
+            { name: "Paris (FR)", lat: 48.85, lon: 2.35 },
+            { name: "Lisboa (PT)", lat: 38.72, lon: -9.14 }
+        ];
 
-        const canvas = document.getElementById('glcanvas');
-        const ctx = canvas.getContext('2d');
-        const sparkCanvas = document.getElementById('sparkline');
-        const sCtx = sparkCanvas.getContext('2d');
+        const E0 = new Date('0000-01-01T00:00:00Z').getTime();
+        const E1000 = new Date('1000-01-01T00:00:00Z').getTime();
+        const VEGA = { ra: 18.61, dec: 38.78 };
+        const ORION = { ra: 5.60, dec: -1.20 };
 
-        function addLog(msg, isErr = false) {
-            const logEl = document.getElementById('log');
-            const div = document.createElement('div');
-            div.className = isErr ? 'log-entry log-err' : 'log-entry';
-            div.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
-            logEl.prepend(div);
+        function init() {
+            const grid = document.getElementById('nodeGrid');
+            nodes.forEach((n, i) => {
+                grid.innerHTML += `
+                    <div class="card">
+                        <div style="font-size:0.8rem; font-weight:bold; color:var(--accent); border-bottom:1px solid var(--border);">${n.name}</div>
+                        
+                        <div class="section-label">Temporal Reference</div>
+                        <div class="clock" id="local-${i}">00:00:00</div>
+                        <div class="clock" id="solar-${i}" style="color:var(--solar); font-size:0.85rem;">00:00:00 (SOLAR)</div>
+                        
+                        <div class="section-label">Stellar Altitude (±)</div>
+                        <div class="val-row"><span style="color:var(--vega)">VEGA:</span><span id="v-${i}" class="val">0.00°</span></div>
+                        <div class="val-row"><span>ORION:</span><span id="o-${i}" class="val">0.00°</span></div>
+
+                        <div class="section-label">Inverse (Antipode)</div>
+                        <div class="val-row" style="color:var(--anti)"><span>L/O:</span><span>${-n.lat.toFixed(1)} / ${(n.lon > 0 ? n.lon-180 : n.lon+180).toFixed(1)}</span></div>
+                    </div>`;
+            });
+            update();
+            setInterval(fetchISS, 5000);
         }
 
-        // WebRTC Events
-        pc.ondatachannel = (event) => {
-            const dc = event.channel;
-            dc.binaryType = "arraybuffer";
-            dc.onopen = () => {
-                document.getElementById('connection-status').innerText = "STATUS: ONLINE";
-                document.getElementById('connection-status').style.color = "var(--success)";
-                addLog("DataChannel verbonden! Ontvangen van data...");
-            };
-            dc.onmessage = (e) => {
-                packetCount++;
-                document.getElementById('packet-count').innerText = packetCount;
-                const view = new DataView(e.data);
-                const rawVal = view.getUint32(0, true);
-                const angle = (rawVal % 360);
-                
-                document.getElementById('angle-display').innerText = `${angle.toFixed(3)}°`;
-                document.getElementById('raw-bits').innerText = rawVal.toString(2).padStart(12, '0').replace(/(.{4})/g, '$1 ');
-
-                lastValues.push(angle);
-                lastValues.shift();
-                drawEncoder(angle);
-                drawSparkline();
-            };
-        };
-
-        pc.oniceconnectionstatechange = () => {
-            document.getElementById('ice-status').innerText = `ICE: ${pc.iceConnectionState}`;
-        };
-
-        // Handshake Logica
-        document.getElementById('processBtn').onclick = async () => {
-            const offerSdp = document.getElementById('offerInput').value.trim();
-            if (!offerSdp.startsWith('v=0')) {
-                addLog("FOUT: Ongeldige offer (moet beginnen met v=0)", true);
-                return;
-            }
-
+        async function fetchISS() {
             try {
-                addLog("Offer verwerken...");
-                await pc.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: offerSdp }));
-                const answer = await pc.createAnswer();
-                await pc.setLocalDescription(answer);
+                const res = await fetch('https://api.wheretheiss.at/v1/satellites/25544');
+                const d = await res.json();
+                document.getElementById('iss-lat').innerText = d.latitude.toFixed(4);
+                document.getElementById('iss-lon').innerText = d.longitude.toFixed(4);
+            } catch(e) {}
+        }
 
-                addLog("Answer aangemaakt. Wachten op ICE...");
+        function calculateAlt(lat, lon, ra, dec) {
+            const now = new Date();
+            const utcHours = now.getUTCHours() + now.getUTCMinutes()/60 + now.getUTCSeconds()/3600;
+            const lst = (100.46 + 0.9856 * 1 + lon + 15 * utcHours) % 360;
+            const ha = (lst - (ra * 15) + 360) % 360;
+            const phi = lat * Math.PI/180;
+            const delta = dec * Math.PI/180;
+            const h = ha * Math.PI/180;
+            const sinAlt = Math.sin(phi) * Math.sin(delta) + Math.cos(phi) * Math.cos(delta) * Math.cos(h);
+            return Math.asin(sinAlt) * 180/Math.PI;
+        }
+
+        function update() {
+            const now = new Date();
+            const time = now.getTime();
+            
+            document.getElementById('gmt-master').innerText = now.getUTCHours().toString().padStart(2,'0') + ":" + now.getUTCMinutes().toString().padStart(2,'0') + ":" + now.getUTCSeconds().toString().padStart(2,'0');
+            document.getElementById('adc-0').innerText = ((time - E0) / 86400000).toFixed(6);
+            document.getElementById('adc-1000').innerText = ((time - E1000) / 86400000).toFixed(6);
+
+            // Network Simulation
+            document.getElementById('up').innerText = (20 + Math.random() * 5).toFixed(1) + "ms";
+            document.getElementById('jitter').innerText = (Math.random() * 1.5).toFixed(2) + "ms";
+
+            nodes.forEach((n, i) => {
+                document.getElementById(`local-${i}`).innerText = now.toLocaleTimeString('nl-NL') + "." + String(now.getMilliseconds()).padStart(3, '0');
                 
-                // Wacht even tot de SDP is ingevuld met candidates
-                const checkIce = setInterval(() => {
-                    if (pc.localDescription.sdp.includes('a=candidate') || pc.iceGatheringState === 'complete') {
-                        document.getElementById('answerOutput').value = pc.localDescription.sdp;
-                        addLog("Klaar! Kopieer de Answer naar de terminal.");
-                        clearInterval(checkIce);
-                    }
-                }, 100);
-            } catch (err) {
-                addLog("CRITICAL: " + err.message, true);
-            }
-        };
+                const sOffset = n.lon * 4 * 60000;
+                const sDate = new Date(time + (now.getTimezoneOffset() * 60000) + sOffset);
+                document.getElementById(`solar-${i}`).innerText = sDate.toLocaleTimeString('nl-NL');
+                
+                // Stellar Updates
+                const vAlt = calculateAlt(n.lat, n.lon, VEGA.ra, VEGA.dec);
+                const oAlt = calculateAlt(n.lat, n.lon, ORION.ra, ORION.dec);
+                
+                const vEl = document.getElementById(`v-${i}`);
+                vEl.innerText = (vAlt > 0 ? "+" : "") + vAlt.toFixed(2) + "°";
+                vEl.className = vAlt > 0 ? "plus" : "min";
 
-        // Teken functies
-        function drawEncoder(angle) {
-            const cx = canvas.width / 2;
-            const cy = canvas.height / 2;
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.save();
-            ctx.translate(cx, cy);
-            ctx.rotate((angle * Math.PI) / 180);
-            for (let i = 0; i < 16; i++) {
-                ctx.beginPath(); ctx.moveTo(0, 0);
-                ctx.arc(0, 0, 150, (i * Math.PI) / 8, ((i + 1) * Math.PI) / 8);
-                ctx.strokeStyle = i % 2 === 0 ? "#00f2ff" : "#1e293b";
-                ctx.lineWidth = 2; ctx.stroke();
-                if (i % 2 === 0) { ctx.fillStyle = "rgba(0, 242, 255, 0.05)"; ctx.fill(); }
-            }
-            ctx.restore();
-            // Statische indicator
-            ctx.beginPath(); ctx.moveTo(cx, cy - 170); ctx.lineTo(cx, cy - 140);
-            ctx.strokeStyle = "#ef4444"; ctx.lineWidth = 4; ctx.stroke();
-        }
+                const oEl = document.getElementById(`o-${i}`);
+                oEl.innerText = (oAlt > 0 ? "+" : "") + oAlt.toFixed(2) + "°";
+                oEl.className = oAlt > 0 ? "plus" : "min";
+            });
 
-        function drawSparkline() {
-            sCtx.clearRect(0, 0, sparkCanvas.width, sparkCanvas.height);
-            sCtx.beginPath(); sCtx.strokeStyle = "#00f2ff"; sCtx.lineWidth = 2;
-            for(let i=0; i<lastValues.length; i++) {
-                const x = (i / lastValues.length) * sparkCanvas.width;
-                const y = sparkCanvas.height - (lastValues[i] / 360) * sparkCanvas.height;
-                if(i === 0) sCtx.moveTo(x, y); else sCtx.lineTo(x, y);
-            }
-            sCtx.stroke();
+            requestAnimationFrame(update);
         }
-
-        function resize() {
-            canvas.width = canvas.clientWidth; canvas.height = canvas.clientHeight;
-            sparkCanvas.width = sparkCanvas.clientWidth; sparkCanvas.height = sparkCanvas.clientHeight;
-            drawEncoder(0);
-        }
-        window.onresize = resize;
-        resize();
+        window.onload = init;
     </script>
 </body>
 </html>
