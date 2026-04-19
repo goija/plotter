@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <title>VORTEX // GO_BASIS_v59.0</title>
+    <style>
+        :root {
+            --bg: #000400; --accent: #00ff41; --hyper: #ff00ff; --solar: #ffcc00;
+        }
+        body {
+            margin: 0; background: var(--bg); color: var(--accent);
+            font-family: 'JetBrains Mono', monospace; display: flex; flex-direction: column; height: 100vh;
+        }
+        header {
+            padding: 15px; border-bottom: 2px solid var(--hyper);
+            display: flex; justify-content: space-between; align-items: center; background: #000b00;
+        }
+        .stats-bar {
+            display: grid; grid-template-columns: repeat(3, 1fr); 
+            background: rgba(255, 0, 255, 0.05); padding: 10px; border-bottom: 1px solid #330033;
+        }
+        .stat-item { text-align: center; font-size: 0.8rem; }
+        .stat-val { display: block; color: var(--hyper); font-size: 1.1rem; font-weight: bold; }
+        
+        .scroll-area { flex: 1; overflow-y: auto; padding: 20px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
+        
+        .slot-card {
+            border: 1px solid #003300; padding: 15px; background: #000;
+            position: relative; overflow: hidden;
+        }
+        .slot-card::after {
+            content: ""; position: absolute; top: 0; right: 0; width: 4px; height: 100%;
+            background: var(--accent); opacity: 0.3;
+        }
+        .is-active { border-color: var(--hyper); box-shadow: 0 0 10px rgba(255, 0, 255, 0.2); }
+
+        .go-math { font-size: 0.65rem; color: #888; margin-top: 10px; line-height: 1.4; }
+        
+        .controls { padding: 20px; background: #000b00; border-top: 1px solid var(--accent); }
+        input[type=range] { width: 100%; accent-color: var(--hyper); }
+    </style>
+</head>
+<body>
+
+<header>
+    <div style="font-weight: bold; letter-spacing: 2px;">VORTEX // GO-BASIS HYPER-STATE</div>
+    <div id="clock" style="color: var(--solar);">19 APRIL 2026 // 12:00:00</div>
+</header>
+
+<div class="stats-bar">
+    <div class="stat-item">GO-BASIS POSITIES<span class="stat-val">1.7e+172</span></div>
+    <div class="stat-item">HYPER-FACTOR<span class="stat-val">5.2e+25</span></div>
+    <div class="stat-item">TOTAL STATE SPACE<span class="stat-val">8.84e+197</span></div>
+</div>
+
+<div class="scroll-area">
+    <div class="grid" id="node-container"></div>
+</div>
+
+<div class="controls">
+    <div style="display:flex; justify-content:space-between; font-size:0.7rem; margin-bottom:5px;">
+        <span>901 SLOT SCRUBBER</span>
+        <span id="slot-indicator">SLOT: 450</span>
+    </div>
+    <input type="range" id="scrub" min="0" max="900" value="450">
+</div>
+
+<script>
+    const container = document.getElementById('node-container');
+    const scrub = document.getElementById('scrub');
+    const GO_BASIS = 1.7e172;
+
+    function render() {
+        container.innerHTML = '';
+        const currentSlot = parseInt(scrub.value);
+        document.getElementById('slot-indicator').innerText = `SLOT: ${currentSlot}`;
+
+        // We tonen een venster van 12 slots rondom de scrubber voor focus
+        for(let i = currentSlot - 6; i <= currentSlot + 6; i++) {
+            if(i < 0 || i > 900) continue;
+            
+            const card = document.createElement('div');
+            card.className = `slot-card ${i === currentSlot ? 'is-active' : ''}`;
+            
+            // Bereken een unieke entropy-waarde per slot gebaseerd op de Go-basis
+            const slotEntropy = (8.84 * Math.pow(10, 197 * (i/901))).toExponential(2);
+            
+            card.innerHTML = `
+                <div style="font-size:0.7rem; opacity:0.5;">ID: SLOT_${i.toString().padStart(3, '0')}</div>
+                <div style="font-size:1rem; margin:5px 0;">STATE_DENSITY</div>
+                <div style="color:var(--hyper); font-weight:bold;">${slotEntropy}</div>
+                <div class="go-math">
+                    LOG(S) = ${ (197 * (i/901)).toFixed(2) }<br>
+                    REL_TO_GO: ${ ( (197 * (i/901)) / 172 ).toFixed(4) }x
+                </div>
+            `;
+            container.appendChild(card);
+        }
+    }
+
+    scrub.addEventListener('input', render);
+    render();
+</script>
+</body>
+</html>
