@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VORTEX // ERBP Filter Protocol</title>
+    <style>
+        :root {
+            --neon-green: #00ff41;
+            --alert-red: #ff003c;
+            --warn-yellow: #ffcc00;
+            --bg-color: #050505;
+            --grid-color: rgba(0, 255, 65, 0.1);
+        }
+        
+        * { box-sizing: border-box; }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--neon-green);
+            font-family: 'Courier New', Courier, monospace;
+            margin: 0;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transition: color 0.5s, background-color 0.5s;
+            overflow-x: hidden;
+        }
+
+        body::after {
+            content: " ";
+            display: block;
+            position: fixed;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
+                        linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            z-index: 2;
+            background-size: 100% 2px, 3px 100%;
+            pointer-events: none;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 950px; 
+            border: 2px solid var(--neon-green);
+            padding: 15px;
+            position: relative;
+            z-index: 3;
+            box-shadow: 0 0 15px rgba(0, 255, 65, 0.2);
+            transition: border-color 0.5s, box-shadow 0.5s;
+            margin-bottom: 20px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--neon-green);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            font-weight: bold;
+            font-size: 1em;
+            letter-spacing: 1px;
+        }
+
+        .dashboard {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .panel {
+            border: 1px dashed var(--neon-green);
+            padding: 15px;
+            flex: 1;
+            min-width: 250px;
+            display: flex;
+            flex-direction: column;
+            background: rgba(0, 20, 0, 0.4);
+        }
+
+        .panel h3 {
+            margin-top: 0;
+            font-size: 1em;
+            border-bottom: 1px dashed rgba(0,255,65,0.5);
+            padding-bottom: 5px;
+        }
+
+        input[type=range] {
+            width: 100%;
+            height: 25px; 
+            accent-color: var(--neon-green);
+            cursor: ew-resize;
+            margin-bottom: 10px;
+        }
+
+        .data-value {
+            font-size: 1.2em;
+            font-weight: bold;
+            letter-spacing: 3px;
+        }
+
+        .highlight-core {
+            color: #fff;
+            background: rgba(0, 255, 65, 0.3);
+            padding: 0 2px;
+            border-radius: 3px;
+        }
+
+        .status-box {
+            text-align: center;
+            font-size: 1.2em;
+            font-weight: bold;
+            padding: 12px;
+            border: 2px solid var(--neon-green);
+            margin-bottom: 20px;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+        }
+
+        .blue-mode {
+            color: #00aaff !important;
+            border-color: #00aaff !important;
+            text-shadow: 0 0 10px #00aaff;
+            box-shadow: inset 0 0 20px rgba(0, 170, 255, 0.2), 0 0 15px rgba(0, 170, 255, 0.4);
+            animation: pulse-blue 1s infinite alternate;
+        }
+
+        .error-mode {
+            color: var(--alert-red) !important;
+            border-color: var(--alert-red) !important;
+        }
+
+        .warn-mode {
+            color: var(--warn-yellow) !important;
+            border-color: var(--warn-yellow) !important;
+        }
+
+        @keyframes pulse-blue {
+            0% { opacity: 1; }
+            100% { opacity: 0.8; }
+        }
+
+        canvas {
+            background-color: #000a00;
+            border: 1px solid var(--neon-green);
+            width: 100%;
+            height: 180px;
+            background-image: 
+                linear-gradient(var(--grid-color) 1px, transparent 1px),
+                linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+            background-size: 20px 20px;
+            display: block;
+            margin-bottom: 15px;
+        }
+
+        .terminal-container {
+            border: 1px solid var(--neon-green);
+            background: rgba(0, 10, 0, 0.8);
+            height: 160px;
+            overflow-y: auto;
+            padding: 10px;
+            font-size: 0.85em;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .terminal-container::-webkit-scrollbar { width: 8px; }
+        .terminal-container::-webkit-scrollbar-track { background: #001100; border-left: 1px solid var(--neon-green); }
+        .terminal-container::-webkit-scrollbar-thumb { background: var(--neon-green); }
+
+        .log-entry { opacity: 0.8; transition: opacity 0.3s; }
+        .log-entry:last-child { opacity: 1; font-weight: bold; }
+        .log-blue { color: #00aaff; text-shadow: 0 0 5px #00aaff; }
+        .log-red { color: var(--alert-red); }
+        .log-yellow { color: var(--warn-yellow); }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <span>VORTEX // ERBP HYPERCUBE ROUTER</span>
+            <span>NODE: LAREN // 6-BIT ARCH</span>
+        </div>
+        
+        <div class="status-box" id="statusBox">
+            [ INITIEER MATRIX... ]
+        </div>
+        
+        <div class="dashboard">
+            <div class="panel" style="flex: 1.5;">
+                <h3>// OMGEVINGSINPUT (S-VECTOR)</h3>
+                <input type="range" id="sSlider" min="0" max="63" step="1" value="27">
+                <div>Decimaal: <span class="data-value" id="sSliderDisplay" style="font-size: 1em;">27</span></div>
+                <div style="margin-top: 10px; font-size: 0.85em; opacity: 0.8;">
+                    <strong>ERBP FILTER REGELS:</strong><br>
+                    1. <code>Hamming(S ⊕ E) == 1</code> (Eén edge afstand)<br>
+                    2. <code>S[1:3] == E[3:5]</code> (Core Integriteit)
+                </div>
+            </div>
+            
+            <div class="panel">
+                <h3>// LIVE TELEMETRIE</h3>
+                <div>Sync (S): <span class="data-value" id="sBits">000000</span></div>
+                <div>Err  (E): <span class="data-value" id="eBits">000000</span></div>
+                <div style="margin-top: 5px; border-top: 1px dashed; padding-top: 5px;">
+                    Diff (P): <span class="data-value" id="pBits">000000</span>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h3>// ERBP EVALUATIE</h3>
+                <div>Hamming Afstand: <span id="hDist" class="data-value">0</span> <span id="hStat"></span></div>
+                <div style="margin-top: 10px;">S-Core <code>s[1:2]</code>: <span class="data-value highlight-core" id="sCore">00</span></div>
+                <div>E-Core <code>e[3:4]</code>: <span class="data-value highlight-core" id="eCore">00</span></div>
+                <div id="condResult" style="margin-top: 10px; font-weight: bold;">[ MATCH: FALSE ]</div>
+            </div>
+        </div>
+        
+        <canvas id="oscilloscope"></canvas>
+
+        <div>
+            <h3>// CASCADE LOG STREAM</h3>
+            <div class="terminal-container" id="terminalLog">
+                <div class="log-entry">> VORTEX ENGINE GESTART. 6-BIT MATRIX ACTIEF.</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('oscilloscope');
+        const ctx = canvas.getContext('2d');
+        const sSlider = document.getElementById('sSlider');
+        const root = document.documentElement;
+        
+        let time = 0;
+        let currentState = "STANDBY"; // "STANDBY", "WARN", "BLUE"
+        let e_int = Math.floor(Math.random() * 64);
+
+        function resizeCanvas() {
+            canvas.width = canvas.parentElement.clientWidth - 2;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        function addLogEntry(S, E, P, hamming, isBlue) {
+            const entry = document.createElement('div');
+            const timeStr = new Date().toTimeString().split(' ')[0];
+            
+            let status = isBlue ? "[BLUE TUNNEL OPEN]" : (hamming > 1 ? "[ROUTING FAULT]" : "[CORE MISMATCH]");
+            entry.innerText = `[${timeStr}] S:${S.toString().padStart(2,'0')} ⊕ E:${E.toString().padStart(2,'0')} | H-DIST:${hamming} | ${status}`;
+            
+            if (isBlue) entry.className = "log-entry log-blue";
+            else if (hamming > 1) entry.className = "log-entry log-red";
+            else entry.className = "log-entry log-yellow";
+
+            const terminalLog = document.getElementById('terminalLog');
+            terminalLog.appendChild(entry);
+            if (terminalLog.children.length > 50) terminalLog.removeChild(terminalLog.firstChild);
+            terminalLog.scrollTop = terminalLog.scrollHeight;
+        }
+
+        function getHammingWeight(binaryString) {
+            return binaryString.split('1').length - 1;
+        }
+
+        function updateLogic(triggeredBySlider = false) {
+            const n = 6;
+            let S = parseInt(sSlider.value);
+            let E = e_int;
+            let P = S ^ E;
+
+            let s_str = S.toString(2).padStart(n, '0');
+            let e_str = E.toString(2).padStart(n, '0');
+            let p_str = P.toString(2).padStart(n, '0');
+
+            let hamming = getHammingWeight(p_str);
+            
+            // Extract core bits (s_1 s_2 en e_3 e_4) -> Let op zero-indexing! 
+            // Index 0 is de meest linkse bit. Dus index 1,2 voor S en 3,4 voor E.
+            let s_core = s_str.substring(1, 3);
+            let e_core = e_str.substring(3, 5);
+
+            let isBlue = (hamming === 1 && s_core === e_core);
+
+            // UI UPDATES
+            document.getElementById('sSliderDisplay').innerText = S;
+            
+            // Highlight bits in the bitstream display
+            document.getElementById('sBits').innerHTML = `${s_str[0]}<span class="highlight-core">${s_core}</span>${s_str.substring(3)}`;
+            document.getElementById('eBits').innerHTML = `${e_str.substring(0,3)}<span class="highlight-core">${e_core}</span>${e_str[5]}`;
+            document.getElementById('pBits').innerText = p_str;
+            
+            document.getElementById('hDist').innerText = hamming;
+            document.getElementById('sCore').innerText = s_core;
+            document.getElementById('eCore').innerText = e_core;
+
+            const statusBox = document.getElementById('statusBox');
+            const hStat = document.getElementById('hStat');
+            const condResult = document.getElementById('condResult');
+
+            if (isBlue) {
+                currentState = "BLUE";
+                root.style.setProperty('--neon-green', '#00aaff');
+                root.style.setProperty('--grid-color', 'rgba(0, 170, 255, 0.15)');
+                statusBox.innerText = "[ BLUE VORTEX: ERBP FILTER SYNCED ]";
+                statusBox.className = "status-box blue-mode";
+                hStat.innerText = "(GELDIGE EDGE)"; hStat.style.color = "#00aaff";
+                condResult.innerText = "[ CORE MATCH: TRUE ]"; condResult.style.color = "#00aaff";
+            } else if (hamming > 1) {
+                currentState = "ERROR";
+                root.style.setProperty('--neon-green', '#00ff41');
+                root.style.setProperty('--grid-color', 'rgba(0, 255, 65, 0.1)');
+                statusBox.innerText = "[ ROUTING FAULT: MULTIPLE BITS FLIPPED ]";
+                statusBox.className = "status-box error-mode";
+                hStat.innerText = "(ONGELDIG PAD)"; hStat.style.color = "var(--alert-red)";
+                condResult.innerText = "[ CORE MATCH: FALSE ]"; condResult.style.color = "var(--alert-red)";
+            } else {
+                currentState = "WARN";
+                root.style.setProperty('--neon-green', '#00ff41');
+                root.style.setProperty('--grid-color', 'rgba(0, 255, 65, 0.1)');
+                statusBox.innerText = "[ PHASON STRAIN: CORE CORRUPTIE ]";
+                statusBox.className = "status-box warn-mode";
+                hStat.innerText = "(GELDIGE EDGE)"; hStat.style.color = "var(--warn-yellow)";
+                condResult.innerText = "[ CORE MATCH: FALSE ]"; condResult.style.color = "var(--alert-red)";
+            }
+
+            if (!triggeredBySlider) {
+                addLogEntry(S, E, P, hamming, isBlue);
+            }
+        }
+
+        // Genereer E-vector. Om de puzzel speelbaar te maken, dwingen we soms een Hamming-1 situatie af.
+        setInterval(() => {
+            if (Math.random() > 0.5) {
+                // Volledig willekeurig
+                e_int = Math.floor(Math.random() * 64);
+            } else {
+                // Forceer Hamming = 1 ten opzichte van S (klap exact 1 willekeurige bit om)
+                let S = parseInt(sSlider.value);
+                let bitToFlip = Math.floor(Math.random() * 6);
+                e_int = S ^ (1 << bitToFlip);
+            }
+            updateLogic(false);
+        }, 2000);
+
+        sSlider.addEventListener('input', () => updateLogic(true));
+        sSlider.addEventListener('change', () => {
+            let S = parseInt(sSlider.value);
+            let P = S ^ e_int;
+            updateLogic(false); // Forceer een log-entry
+        });
+
+        // Oscilloscoop tekenen
+        function drawWave(yOffset, frequency, amplitude, color, jitterLevel, isPulse) {
+            ctx.beginPath();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            for (let x = 0; x < canvas.width; x++) {
+                let jitter = (Math.random() - 0.5) * jitterLevel;
+                let wave = isPulse 
+                    ? Math.sin((x + time) * frequency) + Math.sin((x + time) * frequency * 2.5)
+                    : Math.sin((x + time) * frequency);
+                wave = wave > 0 ? amplitude : -amplitude;
+                ctx.lineTo(x, yOffset + wave + jitter);
+            }
+            ctx.stroke();
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            let baseFreq = 0.02, jitter = 1, timeStep = 2;
+            let computedColor = getComputedStyle(root).getPropertyValue('--neon-green').trim();
+
+            if (currentState === "BLUE") { baseFreq = 0.08; jitter = 5; timeStep = 5; }
+            if (currentState === "ERROR") { jitter = 12; computedColor = "#ff003c"; }
+            if (currentState === "WARN") { jitter = 3; computedColor = "#ffcc00"; }
+
+            let gap = canvas.height / 4;
+            drawWave(gap * 1, baseFreq, gap * 0.3, computedColor, jitter, false); // S
+            drawWave(gap * 2, baseFreq * 1.1, gap * 0.3, computedColor, jitter, false); // E
+            drawWave(gap * 3, 0.05, gap * 0.3, computedColor, jitter, true); // P
+
+            time += timeStep;
+            requestAnimationFrame(draw);
+        }
+        
+        updateLogic(false);
+        draw();
+    </script>
+</body>
+</html>
