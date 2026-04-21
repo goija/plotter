@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VORTEX | Colored Graph Codex Decoder</title>
+    <script src="https://cdn.jsdelivr.net/npm/cbor-js@0.1.0/cbor.js"></script>
+    <style>
+        :root {
+            --bg: #050505;
+            --go-board: #0a0a0a;
+            --grid-line: #333;
+            --q0-green: #00ff41;   
+            --q1-amber: #ffaa00;   
+            --q2-red: #ff3131;     
+            --q3-purple: #b200ff;  
+            --els-cyan: #00e5ff;   
+        }
+
+        body {
+            background-color: var(--bg); color: var(--q0-green);
+            font-family: 'IBM Plex Mono', 'Courier New', monospace;
+            margin: 0; display: flex; flex-direction: column;
+            height: 100vh; overflow: hidden;
+        }
+
+        body::after {
+            content: " "; display: block; position: absolute; top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
+            background-size: 100% 2px; z-index: 100; pointer-events: none;
+        }
+
+        * { scrollbar-width: thin; scrollbar-color: var(--q0-green) #0a0a0a; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #0a0a0a; border-left: 1px solid #1a1a1a; }
+        ::-webkit-scrollbar-thumb { background-color: var(--q0-green); border-radius: 4px; }
+
+        header {
+            padding: 10px 20px; border-bottom: 2px solid var(--q0-green);
+            background: rgba(0, 15, 0, 0.8); display: flex; justify-content: space-between;
+            font-weight: bold; font-size: 0.9rem; letter-spacing: 1px; z-index: 10;
+        }
+        .status-badge { background: var(--q0-green); color: #000; padding: 2px 8px; border-radius: 2px; }
+
+        main { 
+            display: grid; grid-template-columns: 400px 1fr 350px; 
+            flex: 1; gap: 15px; padding: 15px; min-height: 0; z-index: 10; 
+        }
+
+        /* --- LEFT: 19x19 GRID --- */
+        .grid-container {
+            background: var(--go-board); border: 1px solid var(--grid-line); 
+            display: flex; align-items: center; justify-content: center; position: relative; 
+            aspect-ratio: 1/1; width: 100%; box-shadow: inset 0 0 50px rgba(0,0,0,0.8);
+        }
+        .go-board {
+            display: grid; grid-template-columns: repeat(19, 1fr); grid-template-rows: repeat(19, 1fr);
+            width: 100%; height: 100%;
+            background-image: linear-gradient(var(--grid-line) 1px, transparent 1px), linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+            background-size: 5.26% 5.26%; background-position: center;
+        }
+        .intersection { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; position: relative; }
+        
+        .node { 
+            width: 10px; height: 10px; border-radius: 50%; background: #222; 
+            transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; 
+            font-size: 8px; font-weight: bold; color: transparent; 
+        }
+        
+        .node.q0 { background: rgba(0, 255, 65, 0.15); }
+        .node.q1 { background: var(--q1-amber); box-shadow: 0 0 8px var(--q1-amber); }
+        .node.q2 { background: var(--q2-red); box-shadow: 0 0 12px var(--q2-red); }
+        .node.q3 { background: var(--q3-purple); box-shadow: 0 0 12px var(--q3-purple); }
+        .node.els-active {
+            background: var(--els-cyan); color: #000;
+            box-shadow: 0 0 15px var(--els-cyan); transform: scale(1.8); z-index: 5;
+        }
+
+        /* --- CENTER: DE BRUIJN LINE GRAPH CODEX --- */
+        .graph-panel {
+            border: 1px solid var(--els-cyan); background: #05080a; 
+            display: flex; flex-direction: column; position: relative;
+        }
+        .graph-header { background: var(--els-cyan); color: #000; padding: 5px 10px; font-weight: bold; font-size: 0.75rem; text-transform: uppercase; }
+        #network-canvas { flex: 1; width: 100%; height: 100%; display: block; }
+        
+        .dictionary-list {
+            position: absolute; bottom: 10px; left: 10px; right: 10px; font-size: 0.7rem; color: #555;
+            background: rgba(0,0,0,0.8); padding: 5px; border: 1px solid #333; line-height: 1.4;
+            display: flex; flex-wrap: wrap; gap: 5px; justify-content: center;
+        }
+        .dict-active { color: var(--els-cyan); font-weight: bold; text-shadow: 0 0 5px var(--els-cyan); }
+
+        /* --- RIGHT: TERMINALS --- */
+        .sidebar { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+        .panel { border: 1px solid var(--grid-line); background: #0a0a0a; display: flex; flex-direction: column; min-height: 0;}
+        .panel-header { padding: 5px 10px; font-weight: bold; font-size: 0.75rem; text-transform: uppercase; }
+        
+        .cbor-header { background: #111; color: var(--q0-green); border-bottom: 1px solid var(--q0-green); }
+        #cbor-log { flex: 1; overflow-y: auto; padding: 10px; font-size: 0.7rem; color: #fff; }
+        .log-entry { margin-bottom: 8px; border-bottom: 1px dashed #1a1a1a; padding-bottom: 4px; }
+        .hex-dump { color: #666; word-break: break-all; display: block; margin-top: 2px; font-size: 0.65rem; }
+        
+        .els-header { background: var(--els-cyan); color: #000; }
+        #els-log { flex: 1; overflow-y: auto; padding: 10px; font-size: 0.7rem; color: var(--els-cyan); border-top: 1px solid var(--els-cyan);}
+        .els-hit { background: rgba(0, 229, 255, 0.1); border-left: 3px solid var(--els-cyan); padding: 5px; margin-bottom: 5px; }
+    </style>
+</head>
+<body>
+
+<header>
+    <div>VORTEX PHASE MONITOR v15.0 // COLORED LINE GRAPH CODEX</div>
+    <div><span class="status-badge">ALGORITHMIC DECODER ACTIVE</span></div>
+</header>
+
+<main>
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+        <div class="panel-header cbor-header">Spatial Torus (19x19)</div>
+        <div class="grid-container">
+            <div class="go-board" id="matrix"></div>
+        </div>
+    </div>
+
+    <div class="graph-panel">
+        <div class="graph-header">Live Codex Network Graph</div>
+        <canvas id="network-canvas"></canvas>
+        <div class="dictionary-list" id="dict-ui">
+            </div>
+    </div>
+
+    <div class="sidebar">
+        <div class="panel" style="flex: 1; border-color: var(--q0-green);">
+            <div class="panel-header cbor-header">Raw 1D Text Stream (CBOR Payload)</div>
+            <div id="cbor-log">
+                <div class="log-entry" style="color: var(--q0-green);">[SYS] Connecting to continuous string...</div>
+            </div>
+        </div>
+
+        <div class="panel" style="flex: 1; border-color: var(--els-cyan);">
+            <div class="panel-header els-header">Mathematical Pattern Extraction Log</div>
+            <div id="els-log">
+                <div style="color: #888; font-style: italic;">Running ELS Algorithm (n + (n+d) + ... (n+(k-1)d))...</div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script>
+    // --- UI CONFIG ---
+    const matrix = document.getElementById('matrix');
+    const cborLog = document.getElementById('cbor-log');
+    const elsLog = document.getElementById('els-log');
+    const canvas = document.getElementById('network-canvas');
+    const ctx = canvas.getContext('2d');
+    const dictUI = document.getElementById('dict-ui');
+    
+    let gridData = [];
+    
+    const dictionary = [
+        "AMOS", "CHRONICLES", "DANIEL", "DEUTERONOMY", 
+        "ECCLESIASTES", "ESTHER", "EXODUS", "EZEKIEL", "EZRA"
+    ];
+
+    dictUI.innerHTML = `<div style="width: 100%; text-align: center; margin-bottom: 2px;">[MANUSCRIPT DICTIONARY]</div>` + 
+                       dictionary.map(word => `<span id="word-${word}">${word}</span>`).join(' <span style="color:#333;">|</span> ');
+    
+    const allowedSkips = [1, -1, 19, -19, 20, -20, 18, -18];
+
+    // --- VORTEX GRAPH PALETTE ---
+    // Cyaan, Paars, Oranje/Amber, Groen, Rood/Roze
+    const vortexPalette = ['#00e5ff', '#b200ff', '#ffaa00', '#00ff41', '#ff007f'];
+
+    let graphNodes = [];
+    let graphEdges = [];
+
+    function resizeCanvas() {
+        canvas.width = canvas.parentElement.clientWidth;
+        canvas.height = canvas.parentElement.clientHeight - 40; 
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    function initGrid() {
+        for (let i = 0; i < 361; i++) {
+            const char = String.fromCharCode(65 + Math.floor(Math.random() * 26));
+            const container = document.createElement('div');
+            container.className = 'intersection';
+            const node = document.createElement('div');
+            node.className = 'node q0'; 
+            node.innerText = char;
+            container.appendChild(node);
+            matrix.appendChild(container);
+            gridData.push({ element: node, char: char, state: 'q0' });
+        }
+        resizeCanvas();
+        animateGraph(); 
+    }
+
+    function simulateRawStream() {
+        let charsArray = Array.from({length: 361}, () => String.fromCharCode(65 + Math.floor(Math.random() * 26)));
+        const injectELS = Math.random() > 0.45; // 55% kans op match om graph mooi te vullen
+        
+        if (injectELS) {
+            const word = dictionary[Math.floor(Math.random() * dictionary.length)];
+            const skip = allowedSkips[Math.floor(Math.random() * allowedSkips.length)];
+            const k = word.length;
+            
+            let start, maxStart;
+            if (skip > 0) {
+                maxStart = 361 - ((k - 1) * skip);
+                start = Math.floor(Math.random() * maxStart);
+                for(let i=0; i<k; i++) charsArray[start + (i * skip)] = word[i];
+            } else {
+                let absSkip = Math.abs(skip);
+                let minStart = (k - 1) * absSkip;
+                start = minStart + Math.floor(Math.random() * (361 - minStart));
+                for(let i=0; i<k; i++) charsArray[start + (i * skip)] = word[i];
+            }
+        }
+
+        const payload = { 1: Date.now(), 2: (Math.random() * 0.3 + 0.6).toFixed(3), 3: charsArray.join('') };
+        const cborBuffer = CBOR.encode(payload);
+        const hexDump = buf2hex(cborBuffer).substring(0, 150) + "... [TRUNCATED]";
+        
+        processRawData(CBOR.decode(cborBuffer), hexDump);
+    }
+
+    function executeELSSearch(textString) {
+        let results = [];
+        dictionary.forEach(word => {
+            let k = word.length; 
+            allowedSkips.forEach(d => {
+                if (d > 0) {
+                    let maxN = textString.length - ((k - 1) * d);
+                    for (let n = 0; n <= maxN; n++) {
+                        let isMatch = true;
+                        for (let i = 0; i < k; i++) {
+                            if (textString[n + (i * d)] !== word[i]) { isMatch = false; break; }
+                        }
+                        if (isMatch) results.push({ word: word, n: n, d: d, k: k });
+                    }
+                } else if (d < 0) {
+                    let absD = Math.abs(d);
+                    let minN = (k - 1) * absD;
+                    for (let n = minN; n < textString.length; n++) {
+                        let isMatch = true;
+                        for (let i = 0; i < k; i++) {
+                            if (textString[n + (i * d)] !== word[i]) { isMatch = false; break; }
+                        }
+                        if (isMatch) results.push({ word: word, n: n, d: d, k: k });
+                    }
+                }
+            });
+        });
+        return results;
+    }
+
+    function processRawData(data, cborHex) {
+        const textString = data[3];
+        const entropy = parseFloat(data[2]);
+
+        const entry = document.createElement('div');
+        entry.className = 'log-entry';
+        entry.innerHTML = `<span style="color: var(--q0-green); font-weight:bold;">[RX_STRING]</span> E=${entropy} | Length: ${textString.length}<br><span class="hex-dump">${cborHex}</span>`;
+        cborLog.prepend(entry);
+        if (cborLog.childNodes.length > 20) cborLog.lastChild.remove();
+
+        gridData.forEach((item, index) => {
+            item.char = textString[index];
+            item.element.innerText = item.char;
+            item.element.className = 'node q0';
+            item.state = 'q0';
+        });
+        dictionary.forEach(w => document.getElementById(`word-${w}`).className = "");
+
+        const elsHits = executeELSSearch(textString);
+
+        if (elsHits.length > 0) {
+            elsHits.forEach(hit => {
+                document.getElementById(`word-${hit.word}`).className = "dict-active";
+
+                const elsEntry = document.createElement('div');
+                elsEntry.className = 'els-hit';
+                elsEntry.innerHTML = `> <strong>MANUSCRIPT MATCH: ${hit.word}</strong><br>> ELS ID (n, d, k): (${hit.n}, ${hit.d}, ${hit.k})`;
+                elsLog.prepend(elsEntry);
+                if (elsLog.childNodes.length > 15) elsLog.lastChild.remove();
+
+                addGraphNode(hit.word); 
+
+                for (let i = 0; i < hit.k; i++) {
+                    const targetIdx = hit.n + (i * hit.d);
+                    gridData[targetIdx].state = 'els';
+                    gridData[targetIdx].element.className = 'node els-active';
+                }
+            });
+        } else {
+            if (entropy > 0.8) {
+                const qState = entropy > 0.88 ? 2 : 1;
+                const numRuis = Math.floor(Math.random() * 10);
+                for(let i=0; i<numRuis; i++) {
+                    const randomIdx = Math.floor(Math.random() * 361);
+                    gridData[randomIdx].state = `q${qState}`;
+                    gridData[randomIdx].element.className = `node q${qState}`;
+                }
+            }
+        }
+    }
+
+    // --- 5. VERBETERDE GEKLEURDE GRAPH LOGICA ---
+    function addGraphNode(word) {
+        // Wijs een unieke kleur toe uit het palet
+        const assignedColor = vortexPalette[graphNodes.length % vortexPalette.length];
+
+        const newNode = {
+            id: Date.now(), label: word,
+            x: canvas.width / 2 + (Math.random() * 40 - 20), 
+            y: canvas.height / 2 + (Math.random() * 40 - 20),
+            vx: (Math.random() - 0.5) * 20, vy: (Math.random() - 0.5) * 20,
+            life: 1.0,
+            color: assignedColor // Sla kleur op in node object
+        };
+        
+        if (graphNodes.length > 0) {
+            graphEdges.push({ source: graphNodes[graphNodes.length - 1], target: newNode });
+        }
+        graphNodes.push(newNode);
+
+        // Maximaal 10 nodes voor een net overzicht
+        if(graphNodes.length > 10) {
+            graphNodes.shift(); graphEdges.shift();
+        }
+    }
+
+    function animateGraph() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+
+        // Fysica berekenen
+        graphNodes.forEach(node => {
+            node.vx += (centerX - node.x) * 0.003;
+            node.vy += (centerY - node.y) * 0.003;
+            graphNodes.forEach(other => {
+                if(node !== other) {
+                    let dx = node.x - other.x; let dy = node.y - other.y; let dist = Math.sqrt(dx*dx + dy*dy);
+                    if(dist < 100 && dist > 0) { node.vx += (dx / dist) * 0.8; node.vy += (dy / dist) * 0.8; }
+                }
+            });
+            node.vx *= 0.88; node.vy *= 0.88;
+            node.x += node.vx; node.y += node.vy;
+        });
+
+        // 1. TEKEN LIJNEN (Met kleur van de bron-node)
+        ctx.lineWidth = 2.0;
+        graphEdges.forEach(edge => {
+            ctx.beginPath();
+            ctx.moveTo(edge.source.x, edge.source.y);
+            ctx.lineTo(edge.target.x, edge.target.y);
+            
+            // Lijnkleur is de kleur van het start-knooppunt, met de laagste alpha van de twee
+            const alpha = Math.min(edge.source.life, edge.target.life) * 0.7;
+            
+            // Converteer Hex naar RGBa om alpha toe te passen (simpel opgelost met globalAlpha)
+            ctx.globalAlpha = alpha;
+            ctx.strokeStyle = edge.source.color; 
+            ctx.stroke();
+            ctx.globalAlpha = 1.0; // Reset
+        });
+
+        // 2. TEKEN NODES EN LABELS (Met Pills)
+        graphNodes.forEach(node => {
+            node.life -= 0.0015; // Iets snellere fade-out
+            if(node.life < 0) node.life = 0;
+
+            ctx.globalAlpha = node.life;
+
+            // Het Bolletje (Node) met Glow
+            ctx.beginPath();
+            ctx.arc(node.x, node.y, 6, 0, Math.PI * 2);
+            ctx.fillStyle = node.color;
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = node.color;
+            ctx.fill();
+
+            // Label Background Pill (zwarte doos achter tekst)
+            ctx.shadowBlur = 0; // Zet glow uit voor scherpe tekst
+            ctx.font = "bold 11px 'IBM Plex Mono', Courier";
+            const textWidth = ctx.measureText(node.label).width;
+            const padX = 6;
+            const padY = 4;
+            const pillX = node.x + 12;
+            const pillY = node.y - 8;
+            const pillWidth = textWidth + (padX * 2);
+            const pillHeight = 16;
+
+            // Achtergrondvlak
+            ctx.fillStyle = "rgba(0, 0, 0, 0.85)";
+            ctx.fillRect(pillX, pillY, pillWidth, pillHeight);
+            
+            // Gekleurde Rand om de tekst
+            ctx.strokeStyle = node.color;
+            ctx.lineWidth = 1;
+            ctx.strokeRect(pillX, pillY, pillWidth, pillHeight);
+
+            // De Tekst zelf
+            ctx.fillStyle = "#ffffff";
+            ctx.fillText(node.label, pillX + padX, pillY + 12);
+
+            ctx.globalAlpha = 1.0; // Reset voor de volgende iteratie
+        });
+
+        requestAnimationFrame(animateGraph);
+    }
+
+    function buf2hex(buffer) { return Array.prototype.map.call(new Uint8Array(buffer), x => ('00' + x.toString(16)).slice(-2).toUpperCase()).join(' '); }
+
+    initGrid();
+    setInterval(simulateRawStream, 1500);
+</script>
+
+</body>
+</html>
