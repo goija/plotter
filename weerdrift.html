@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VORTEX WebRTC Dashboard - 2026-04-20</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --text-color: #e0e0e0;
+            --color-a: #8B0000; /* Dark Red - Underfitting */
+            --color-b: #FFBF00; /* Amber - Transition */
+            --color-c: #006400; /* Dark Green - Optimal */
+            --font-mono: 'Courier New', Courier, monospace;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            font-family: var(--font-mono);
+            color: #ffffff;
+            font-size: 1.8rem;
+            margin-bottom: 5px;
+        }
+
+        .subtitle {
+            font-family: var(--font-mono);
+            color: #06d6a0;
+            margin-bottom: 15px;
+        }
+
+        /* WebRTC Control Panel */
+        .control-panel {
+            background-color: #1e1e1e;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 15px;
+            max-width: 800px;
+            margin: 0 auto 30px auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-family: var(--font-mono);
+        }
+
+        button {
+            background-color: #333;
+            color: #fff;
+            border: 1px solid #555;
+            padding: 10px 15px;
+            cursor: pointer;
+            font-family: var(--font-mono);
+            border-radius: 4px;
+            transition: 0.2s;
+        }
+
+        button:hover:not(:disabled) { background-color: #555; }
+        button:disabled { background-color: #1a1a1a; color: #555; cursor: not-allowed; }
+
+        .status-indicator {
+            font-weight: bold;
+            padding: 5px 10px;
+            border-radius: 4px;
+            background: #000;
+        }
+        .disconnected { color: #ff6b6b; border: 1px solid #ff6b6b; }
+        .connected { color: #06d6a0; border: 1px solid #06d6a0; }
+
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+            margin-bottom: 20px;
+        }
+        .legend span { padding: 5px 10px; border-radius: 4px; color: #fff; font-weight: bold; }
+        .bg-red { background-color: var(--color-a); }
+        .bg-amber { background-color: var(--color-b); color: #000 !important; }
+        .bg-green { background-color: var(--color-c); }
+
+        /* Grid Layout */
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .run-card {
+            background-color: #1e1e1e;
+            border: 5px solid;
+            border-radius: 8px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+        }
+
+        .border-red { border-color: var(--color-a); }
+        .border-amber { border-color: var(--color-b); }
+        .border-green { border-color: var(--color-c); }
+
+        .run-header {
+            text-align: center;
+            font-family: var(--font-mono);
+            font-weight: bold;
+            font-size: 1.1rem;
+            margin-bottom: 10px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #333;
+        }
+
+        /* Oscilloscoop Data Weergave */
+        .osc-view {
+            background-color: #000;
+            border: 1px solid #333;
+            padding: 15px;
+            flex-grow: 1;
+            font-family: var(--font-mono);
+            color: #06d6a0;
+            font-size: 0.9rem;
+            line-height: 1.6;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .data-row {
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px dashed #333;
+            margin-bottom: 5px;
+        }
+        .data-label { color: #888; }
+        
+        .run-label {
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+            margin-top: 10px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .label-red { color: #ff6b6b; }
+        .label-amber { color: #ffd166; }
+        .label-green { color: #06d6a0; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>[ VORTEX Live Telemetry ]</h1>
+        <div class="subtitle">2026-04-20 | DataChannel (SCTP/UDP) geactiveerd | 42.5ms Ticks</div>
+    </header>
+
+    <div class="control-panel">
+        <div>
+            <button id="btnConnect">1. Initieer P2P WebRTC</button>
+            <button id="btnStream" disabled>2. Start Live DataStream</button>
+        </div>
+        <div>
+            <span id="p2pStatus" class="status-indicator disconnected">WebRTC: Disconnected</span>
+            <span id="tickCounter" style="margin-left: 15px; color: #888;">Tick: 0</span>
+        </div>
+    </div>
+
+    <div class="legend">
+        <span class="bg-red">🔴 A: Underfitting</span>
+        <span class="bg-amber">🟠 B: Transition / Lock-in</span>
+        <span class="bg-green">🟢 C: Saturation / Optimal</span>
+    </div>
+
+    <div class="grid-container" id="grid">
+        </div>
+
+    <script>
+        // DOM Setup voor de 9 vensters
+        const grid = document.getElementById('grid');
+        const configurations = [
+            { id: 1, w: 0.1, color: 'red', label: 'A (dark red) = underfitting' },
+            { id: 2, w: 0.2, color: 'red', label: 'A (dark red) = underfitting' },
+            { id: 3, w: 0.3, color: 'red', label: 'A (dark red) = underfitting' },
+            { id: 4, w: 0.4, color: 'amber', label: 'B (amber) = transition / lock-in' },
+            { id: 5, w: 0.5, color: 'amber', label: 'B (amber) = transition / lock-in' },
+            { id: 6, w: 0.6, color: 'amber', label: 'B (amber) = transition / lock-in' },
+            { id: 7, w: 0.7, color: 'green', label: 'C (dark green) = saturation / optimal' },
+            { id: 8, w: 0.8, color: 'green', label: 'C (dark green) = saturation / optimal' },
+            { id: 9, w: 0.9, color: 'green', label: 'C (dark green) = saturation / optimal' }
+        ];
+
+        configurations.forEach(cfg => {
+            const html = `
+                <div class="run-card border-${cfg.color}">
+                    <div class="run-header">Run ${cfg.id}: w=${cfg.w.toFixed(1)}</div>
+                    <div class="osc-view">
+                        <div class="data-row"><span class="data-label">True Drift (TEC):</span> <span id="true-${cfg.id}">0.000</span></div>
+                        <div class="data-row"><span class="data-label">Tracked Offset:</span> <span id="trk-${cfg.id}">0.000</span></div>
+                        <div class="data-row"><span class="data-label">Lag (ms):</span> <span id="lag-${cfg.id}">-</span></div>
+                        <div class="data-row"><span class="data-label">XOR Rate (BER):</span> <span id="xor-${cfg.id}">0</span></div>
+                        <div class="data-row"><span class="data-label">Status:</span> <span id="stat-${cfg.id}">IDLE</span></div>
+                    </div>
+                    <div class="run-label label-${cfg.color}">${cfg.label}</div>
+                </div>
+            `;
+            grid.insertAdjacentHTML('beforeend', html);
+        });
+
+        // WebRTC Logica
+        let localConnection, remoteConnection;
+        let sendChannel, receiveChannel;
+        let streamInterval;
+        let tick = 0;
+        let simulatedDrift = 0;
+
+        const btnConnect = document.getElementById('btnConnect');
+        const btnStream = document.getElementById('btnStream');
+        const p2pStatus = document.getElementById('p2pStatus');
+        const tickCounter = document.getElementById('tickCounter');
+
+        async function initWebRTC() {
+            btnConnect.disabled = true;
+            localConnection = new RTCPeerConnection();
+            remoteConnection = new RTCPeerConnection();
+
+            // ICE Candidate routing (lokale simulatie)
+            localConnection.onicecandidate = e => e.candidate && remoteConnection.addIceCandidate(e.candidate);
+            remoteConnection.onicecandidate = e => e.candidate && localConnection.addIceCandidate(e.candidate);
+
+            // DataChannel (Unordered, Unreliable voor max snelheid)
+            sendChannel = localConnection.createDataChannel('vortexTelemetry', { ordered: false, maxRetransmits: 0 });
+            
+            sendChannel.onopen = () => {
+                p2pStatus.textContent = "WebRTC: Connected (P2P)";
+                p2pStatus.className = "status-indicator connected";
+                btnStream.disabled = false;
+            };
+
+            remoteConnection.ondatachannel = (e) => {
+                receiveChannel = e.channel;
+                receiveChannel.onmessage = handleIncomingTelemetry;
+            };
+
+            // Handshake
+            const offer = await localConnection.createOffer();
+            await localConnection.setLocalDescription(offer);
+            await remoteConnection.setRemoteDescription(offer);
+            const answer = await remoteConnection.createAnswer();
+            await remoteConnection.setLocalDescription(answer);
+            await localConnection.setRemoteDescription(answer);
+        }
+
+        // Simulatie van de data in de VORTEX engine
+        function generateTick() {
+            tick++;
+            // Simuleer een langzame "drift" golf (bv. Ionosferische TEC variatie)
+            simulatedDrift = Math.sin(tick / 50) * 2 + Math.sin(tick / 15) * 0.5; 
+            
+            let payload = { tick: tick, trueDrift: simulatedDrift, runs: [] };
+
+            configurations.forEach(cfg => {
+                // Simuleer filter gedrag obv gewicht w
+                // Lage w -> traag volgen (hoge lag, hoge XOR error)
+                // Hoge w -> snel volgen (lage lag, tracking op de ruis)
+                let trackingFactor = cfg.w; 
+                let trackedDrift = simulatedDrift * trackingFactor + (Math.random() * (1 - trackingFactor)); // Jitter toevoeging
+                
+                let error = Math.abs(simulatedDrift - trackedDrift);
+                let xorRate = Math.floor(error * 40); // Fictieve Bit Error berekening
+                let lag = Math.floor((1 - cfg.w) * 120); // Lag is hoger bij lage w
+                
+                let lockStatus = cfg.w < 0.4 ? "SLIPPING" : (cfg.w < 0.7 ? "PULL-IN" : "LOCKED");
+
+                payload.runs.push({
+                    id: cfg.id,
+                    tracked: trackedDrift.toFixed(3),
+                    xor: xorRate,
+                    lag: lag,
+                    status: lockStatus
+                });
+            });
+
+            if(sendChannel && sendChannel.readyState === 'open') {
+                sendChannel.send(JSON.stringify(payload));
+            }
+        }
+
+        // Dashboard updaten bij ontvangst
+        function handleIncomingTelemetry(event) {
+            const data = JSON.parse(event.data);
+            tickCounter.textContent = `Tick: ${data.tick}`;
+
+            data.runs.forEach(run => {
+                document.getElementById(`true-${run.id}`).textContent = data.trueDrift.toFixed(3);
+                document.getElementById(`trk-${run.id}`).textContent = run.tracked;
+                document.getElementById(`lag-${run.id}`).textContent = run.lag;
+                document.getElementById(`xor-${run.id}`).textContent = run.xor;
+                document.getElementById(`stat-${run.id}`).textContent = run.status;
+                
+                // Visuele feedback op errors
+                const xorSpan = document.getElementById(`xor-${run.id}`);
+                if(run.xor > 50) xorSpan.style.color = "#ff6b6b";
+                else if (run.xor > 20) xorSpan.style.color = "#ffd166";
+                else xorSpan.style.color = "#06d6a0";
+            });
+        }
+
+        function toggleStream() {
+            if(streamInterval) {
+                clearInterval(streamInterval);
+                streamInterval = null;
+                btnStream.textContent = "2. Start Live DataStream";
+                btnStream.style.backgroundColor = "#333";
+            } else {
+                // 42.5ms interval zoals gespecificeerd in VORTEX
+                streamInterval = setInterval(generateTick, 42.5);
+                btnStream.textContent = "2. Stop Live DataStream";
+                btnStream.style.backgroundColor = "#8B0000";
+            }
+        }
+
+        // Listeners
+        btnConnect.addEventListener('click', initWebRTC);
+        btnStream.addEventListener('click', toggleStream);
+
+    </script>
+</body>
+</html>
