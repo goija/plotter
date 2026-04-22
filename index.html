@@ -2,276 +2,114 @@
 <html lang="nl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VORTEX OMNI-BRIDGE v26.5 | Local Command Center</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <title>Atmos Monitor - Type-Safe Fix</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    
+    <script src="https://cdn.jsdelivr.net/npm/cbor-x@1.5.3/dist/index.min.js"></script>
     <style>
-        :root {
-            --bg: #020617;
-            --panel: #0f172a;
-            --master: #facc15;
-            --border: #1e293b;
-            --text: #f8fafc;
-            --accent: #00f2ff;
-            --solar: #fbbf24;
-            --nl-node: #22c55e;
-            --antipodal: #ec4899;
-            --dim: #64748b;
-            --telemetry: #38bdf8;
-            --success: #10b981;
-            --danger: #ef4444;
-        }
-
-        body {
-            margin: 0; background: var(--bg); color: var(--text);
-            font-family: 'JetBrains Mono', 'Courier New', monospace;
-            display: flex; flex-direction: column; height: 100vh; overflow: hidden;
-        }
-
-        /* HEADER & TABS */
-        header {
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 10px 20px; background: var(--panel); border-bottom: 1px solid var(--border);
-            box-shadow: 0 4px 10px rgba(0,0,0,0.5); z-index: 100;
-        }
-
-        .logo-section { display: flex; align-items: center; gap: 20px; }
-        .logo-text { font-weight: 800; color: var(--master); letter-spacing: 2px; font-size: 1.1rem; }
-
-        .tab-container { display: flex; gap: 5px; }
-        .tab-btn {
-            padding: 8px 15px; background: transparent; border: 1px solid var(--border);
-            color: var(--dim); cursor: pointer; font-family: inherit; font-size: 0.8rem;
-            border-radius: 4px; transition: 0.3s;
-        }
-        .tab-btn.active { color: var(--accent); border-color: var(--accent); background: rgba(0, 242, 255, 0.05); }
-
-        /* MAIN LAYOUT */
-        main { flex: 1; overflow: hidden; position: relative; }
-        .page { display: none; height: 100%; width: 100%; padding: 20px; box-sizing: border-box; overflow-y: auto; }
-        .page.active { display: flex; flex-direction: column; }
-
-        /* GRID SYSTEM */
-        .node-grid {
-            display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-            gap: 15px; max-width: 1800px; margin: 0 auto; width: 100%;
-        }
-
-        .card {
-            background: var(--panel); border: 1px solid var(--border);
-            border-radius: 12px; padding: 15px; position: relative;
-        }
-        .card.master {
-            grid-column: 1 / -1; border: 2px solid var(--master);
-            background: linear-gradient(90deg, rgba(250,204,21,0.05) 0%, rgba(15,23,42,1) 100%);
-        }
-
-        /* TELEMETRY STYLES */
-        .tele-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; font-size: 0.75rem; margin-top: 10px; }
-        .tele-val { text-align: right; color: var(--telemetry); font-weight: bold; }
-        
-        /* GRAPH VISUALIZER */
-        #graphCanvas {
-            width: 100%; height: 300px; background: #000; border-radius: 8px;
-            border: 1px solid var(--border); margin-bottom: 15px;
-        }
-
-        /* STATUS BADGES */
-        .badge-row { display: flex; gap: 10px; margin-bottom: 10px; }
-        .badge { font-size: 0.65rem; padding: 2px 8px; border-radius: 3px; border: 1px solid var(--border); color: var(--dim); }
-        .online { color: var(--success); border-color: var(--success); box-shadow: 0 0 5px var(--success); }
-
-        /* UTILS */
-        #search-box {
-            background: #000; border: 1px solid var(--border); color: white;
-            padding: 8px 15px; border-radius: 6px; width: 250px; outline: none;
-        }
-        iframe { width: 100%; flex: 1; border: 1px solid var(--border); border-radius: 8px; background: #fff; }
-        
-        ::-webkit-scrollbar { width: 5px; }
-        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+        body { background: #050505; color: #0f0; font-family: monospace; padding: 20px; }
+        .wrapper { border: 1px solid #0f0; max-width: 900px; margin: 0 auto; padding: 20px; }
+        #status { color: red; font-weight: bold; float: right; }
+        .online { color: #0f0 !important; }
+        #chart-wrap { height: 300px; margin: 20px 0; border: 1px solid #222; }
+        #log { height: 120px; overflow-y: auto; font-size: 11px; color: #666; border-top: 1px solid #222; padding-top: 10px; }
     </style>
 </head>
 <body>
+    <div class="wrapper">
+        <span id="status">OFFLINE</span>
+        <div>SYSTEM_VERSION: ATMOS_V11_STABLE</div>
+        <div id="chart-wrap"><canvas id="mainChart"></canvas></div>
+        <div id="log">> Systeem gereed...<br></div>
+    </div>
 
-    <header>
-        <div class="logo-section">
-            <div class="logo-text">VORTEX_OMNI_BRIDGE_v26.5 // LOCAL</div>
-            <input type="text" id="search-box" placeholder="Filter Nodes...">
-        </div>
-        <div class="tab-container">
-            <button class="tab-btn active" onclick="showPage('bridge')">📡 BRIDGE</button>
-            <button class="tab-btn" onclick="showPage('plotter')">📊 P2P PLOTTER</button>
-            <button class="tab-btn" onclick="showPage('nodered')">⚙️ NODE-RED</button>
-        </div>
-    </header>
+<script>
+    const logBox = document.getElementById('log');
+    const statusBox = document.getElementById('status');
+    const decoder = new CBOR.Decoder();
+    let chart, pc, socket;
 
-    <main>
-        <div id="page-bridge" class="page active">
-            <div class="node-grid" id="nodeContainer">
-                <div class="card master">
-                    <div class="badge-row">
-                        <div id="ws-status" class="badge">WSS: DISCONNECTED</div>
-                        <div id="p2p-status" class="badge">P2P: IDLE</div>
-                        <div class="badge">CHERRY_GRAPH: ACTIVE</div>
-                    </div>
-                    <div style="display:flex; justify-content: space-between; align-items: flex-start;">
-                        <div>
-                            <div style="color:var(--dim); font-size:0.7rem">CORE_COMMAND_HUB // ID_MASTER</div>
-                            <div style="font-size:1.5rem; font-weight:bold; color:var(--master)">Laren (NH)</div>
-                            <div id="master-time" style="font-size:3rem; font-weight:bold">00:00:00</div>
-                        </div>
-                        <div style="width: 400px;">
-                            <canvas id="graphCanvas"></canvas>
-                        </div>
-                    </div>
-                    
-                    <div class="tele-grid" id="masterTelemetry">
-                        <div>ISS SNELHEID:</div><div class="tele-val"><span id="iss-vel">7.66</span> km/s</div>
-                        <div>MAAN VERTRAGING:</div><div class="tele-val"><span id="moon-del">1.28</span> s</div>
-                        <div>VEGA JITTER:</div><div class="tele-val"><span id="vega-jit">0</span> ms</div>
-                        <div>S2 SYMMETRY STATUS:</div><div class="tele-val" style="color:var(--success)">BALANCED</div>
-                    </div>
-                </div>
-            </div>
-        </div>
+    function addLog(msg) {
+        logBox.innerHTML += `[${new Date().toLocaleTimeString()}] ${msg}<br>`;
+        logBox.scrollTop = logBox.scrollHeight;
+    }
 
-        <div id="page-plotter" class="page">
-            <div class="card" style="flex: 1; display: flex; flex-direction: column;">
-                <h3 style="margin-top:0;">REAL-TIME BINARY DATA STREAM (C++ -> WebRTC)</h3>
-                <canvas id="liveChart" style="flex: 1; max-height: 500px; width: 100%;"></canvas>
-                <div style="margin-top: 20px;" class="tele-grid">
-                    <div>P2P Latency:</div><div class="tele-val">0.002ms</div>
-                    <div>Data Channel:</div><div class="tele-val">vortex_telemetry_bin</div>
-                </div>
-            </div>
-        </div>
+    // Chart.js Setup
+    const ctx = document.getElementById('mainChart').getContext('2d');
+    chart = new Chart(ctx, {
+        type: 'line',
+        data: { labels: [], datasets: [
+            { label: 'Entropy', borderColor: '#3498db', data: [], tension: 0.1, pointRadius: 0 },
+            { label: 'Anomaly', borderColor: '#e74c3c', data: [], tension: 0.1, pointRadius: 0 }
+        ]},
+        options: { responsive: true, maintainAspectRatio: false, animation: false }
+    });
 
-        <div id="page-nodered" class="page">
-            <div style="text-align: right; margin-bottom: 10px;">
-                <a href="http://localhost:1880" target="_blank" style="color: var(--accent); text-decoration: none; font-size: 0.85rem; border: 1px solid var(--accent); padding: 5px 10px; border-radius: 4px;">🔗 Open Node-RED in nieuw venster</a>
-            </div>
-            <iframe id="nrFrame" src="http://localhost:1880/"></iframe>
-        </div>
-    </main>
+    function start() {
+        pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
 
-    <script>
-        // --- CONFIG & STATE ---
-        let socket;
-        const nodesData = [
-            { id: "MASTER", name: "Laren (NH)", lat: 52.22, lon: 5.17, isMaster: true },
-            { id: 201, name: "Hilversum", lat: 52.22, lon: 5.17, type: "MEDIA_GATEWAY" },
-            { id: 202, name: "Zwolle", lat: 52.51, lon: 6.09, type: "REGIONAL_HUB" },
-            { id: 203, name: "Franeker", lat: 53.18, lon: 5.54, type: "NORTH_NODE" }
-        ];
+        socket = new WebSocket('ws://127.0.0.1:8081');
 
-        // --- NAVIGATION ---
-        function showPage(pageId) {
-            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            document.getElementById('page-' + pageId).classList.add('active');
-            event.target.classList.add('active');
-        }
-
-        // --- ANTIPODAL LOGIC ---
-        function getAntipodal(lat, lon, isMaster) {
-            if (isMaster) return { lat: "-52.2200", lon: "-174.8300" };
-            const antiLat = -lat;
-            const antiLon = lon > 0 ? lon - 180 : lon + 180;
-            return { lat: antiLat.toFixed(4), lon: antiLon.toFixed(4) };
-        }
-
-        // --- BACKEND CONNECTIE ---
-        function initBackend() {
-            socket = io('http://localhost:5000'); // De lokale Python Vortex Engine
-
-            socket.on('connect', () => {
-                const statusBadge = document.getElementById('ws-status');
-                statusBadge.innerText = "WSS: ONLINE";
-                statusBadge.classList.add('online');
-            });
-
-            socket.on('vortex_update', (data) => {
-                const t = data.telemetry;
-                document.getElementById('iss-vel').innerText = t.iss_vel;
-                document.getElementById('moon-del').innerText = t.moon_del;
-                document.getElementById('vega-jit').innerText = t.vega_jit;
-                
-                updatePlotter(t.iss_vel); 
-            });
-        }
-
-        // --- GRAPH VISUALIZER (CHERRY LOGIC) ---
-        function drawGraph() {
-            const canvas = document.getElementById('graphCanvas');
-            const ctx = canvas.getContext('2d');
-            const w = canvas.width = canvas.offsetWidth;
-            const h = canvas.height = canvas.offsetHeight;
-
-            ctx.clearRect(0, 0, w, h);
-            const hubX = w / 2, hubY = h / 2;
-            
-            const leaves = [
-                {x: hubX - 80, y: hubY + 60, label: "Zwolle"},
-                {x: hubX + 80, y: hubY + 60, label: "Franeker"}
-            ];
-
-            ctx.strokeStyle = '#00f2ff'; ctx.lineWidth = 2;
-            leaves.forEach(leaf => {
-                ctx.beginPath(); ctx.moveTo(hubX, hubY); ctx.lineTo(leaf.x, leaf.y); ctx.stroke();
-                ctx.fillStyle = '#ec4899'; ctx.beginPath(); ctx.arc(leaf.x, leaf.y, 6, 0, Math.PI*2); ctx.fill();
-            });
-
-            ctx.fillStyle = '#facc15'; ctx.beginPath(); ctx.arc(hubX, hubY, 10, 0, Math.PI*2); ctx.fill();
-        }
-
-        // --- CHART SETUP ---
-        let chart;
-        function initChart() {
-            const ctx = document.getElementById('liveChart').getContext('2d');
-            chart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: Array(50).fill(''),
-                    datasets: [{ label: 'P2P Binary Stream (Simulated ISS)', data: Array(50).fill(0), borderColor: '#00f2ff', tension: 0.2, pointRadius: 0 }]
-                },
-                options: { animation: false, scales: { y: { min: 7.6, max: 7.7 } } }
-            });
-        }
-
-        function updatePlotter(val) {
-            if (!chart) return;
-            chart.data.datasets[0].data.push(val);
-            chart.data.datasets[0].data.shift();
-            chart.update();
-        }
-
-        // --- INITIALISATIE ---
-        window.onload = () => {
-            initBackend();
-            initChart();
-            drawGraph();
-            
-            const container = document.getElementById('nodeContainer');
-            nodesData.filter(n => !n.isMaster).forEach(node => {
-                const anti = getAntipodal(node.lat, node.lon);
-                container.innerHTML += `
-                    <div class="card">
-                        <div style="font-size:0.6rem; color:var(--dim)">${node.type || 'NODE'} // ID_${node.id}</div>
-                        <div style="font-weight:bold; font-size:1.1rem">${node.name}</div>
-                        <div class="tele-grid">
-                            <div>Antipodal:</div><div class="tele-val" style="color:var(--antipodal)">${anti.lat}, ${anti.lon}</div>
-                        </div>
-                    </div>
-                `;
-            });
-
-            setInterval(() => {
-                document.getElementById('master-time').innerText = new Date().toLocaleTimeString('nl-NL', {hour12:false});
-            }, 1000);
+        // Veilig verzenden functie om de 'type is null' fout te voorkomen
+        const safeSend = (obj) => {
+            if (obj && obj.type && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify(obj));
+            }
         };
-    </script>
+
+        pc.ondatachannel = (event) => {
+            const dc = event.channel;
+            dc.binaryType = "arraybuffer";
+            dc.onopen = () => {
+                statusBox.innerText = "ONLINE";
+                statusBox.className = "online";
+                addLog("✅ TUNNEL STATUS: GEOPEND");
+            };
+            dc.onmessage = (e) => {
+                const data = decoder.decode(new Uint8Array(e.data));
+                const time = new Date().toLocaleTimeString();
+                chart.data.labels.push(time);
+                chart.data.datasets[0].data.push(data.entropy);
+                chart.data.datasets[1].data.push(data.anomaly);
+                if (chart.data.labels.length > 50) chart.data.labels.shift();
+                chart.update('none');
+            };
+        };
+
+        socket.onopen = () => {
+            addLog("Signaling verbonden. 'join' sturen...");
+            safeSend({ type: "join" });
+        };
+
+        socket.onmessage = async (e) => {
+            try {
+                const msg = JSON.parse(e.data);
+                if (!msg.type) return;
+
+                if (msg.type === "offer") {
+                    addLog("Offer ontvangen.");
+                    await pc.setRemoteDescription(new RTCSessionDescription(msg));
+                    const answer = await pc.createAnswer();
+                    await pc.setLocalDescription(answer);
+                    safeSend({ type: "answer", sdp: pc.localDescription.sdp });
+                } else if (msg.type === "candidate" && msg.candidate) {
+                    await pc.addIceCandidate(new RTCIceCandidate(msg.candidate));
+                }
+            } catch (err) { console.error("JSON parse fout", err); }
+        };
+
+        pc.onicecandidate = (e) => {
+            if (e.candidate) {
+                safeSend({ type: "candidate", candidate: e.candidate });
+            }
+        };
+
+        socket.onclose = () => {
+            addLog("🔌 Verbinding verbroken. Herstart over 3s...");
+            setTimeout(() => location.reload(), 3000);
+        };
+    }
+
+    window.onload = start;
+</script>
 </body>
 </html>
