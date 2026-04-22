@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VORTEX | Kybernetika '78 De Bruijn Encoder (Raw CBOR + ELS)</title>
+    <script src="https://cdn.jsdelivr.net/npm/cbor-js@0.1.0/cbor.js"></script>
+    <style>
+        :root {
+            --bg: #050505;
+            --go-board: #0a0a0a;
+            --grid-line: #333;
+            
+            /* Quaternary Colors (Kybernetika States) */
+            --q0-green: #00ff41;   /* Q0: Stasis */
+            --q1-amber: #ffaa00;   /* Q1: Warning */
+            --q2-red: #ff3131;     /* Q2: Drift */
+            --q3-purple: #b200ff;  /* Q3: Recovery */
+            --els-cyan: #00e5ff;   /* ELS Pattern Target */
+        }
+
+        body {
+            background-color: var(--bg); color: var(--q0-green);
+            font-family: 'IBM Plex Mono', 'Courier New', monospace;
+            margin: 0; display: flex; flex-direction: column;
+            height: 100vh; overflow: hidden;
+        }
+
+        /* --- CRT EFFECT --- */
+        body::after {
+            content: " "; display: block; position: absolute; top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
+            background-size: 100% 2px; z-index: 100; pointer-events: none;
+        }
+
+        /* --- CUSTOM SCROLLBAR --- */
+        * { scrollbar-width: thin; scrollbar-color: var(--q0-green) #0a0a0a; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #0a0a0a; border-left: 1px solid #1a1a1a; }
+        ::-webkit-scrollbar-thumb { background-color: var(--q0-green); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background-color: var(--els-cyan); cursor: pointer; }
+
+        /* --- HEADER --- */
+        header {
+            padding: 10px 20px; border-bottom: 2px solid var(--q0-green);
+            background: rgba(0, 15, 0, 0.8); display: flex; justify-content: space-between;
+            font-weight: bold; font-size: 0.9rem; letter-spacing: 1px; z-index: 10;
+        }
+        .status-badge { background: var(--q0-green); color: #000; padding: 2px 8px; border-radius: 2px; }
+        .danger-badge { background: transparent; color: var(--q2-red); border: 1px solid var(--q2-red); padding: 2px 8px; font-size: 0.75rem; }
+
+        main { display: grid; grid-template-columns: 1fr 480px; flex: 1; gap: 15px; padding: 15px; min-height: 0; z-index: 10; }
+
+        /* --- LEFT COLUMN: SPATIAL GRID + 1D TEXTSTRING --- */
+        .spatial-column { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+
+        /* 19x19 Grid (De Bruijn Torus) */
+        .grid-container {
+            background: var(--go-board); border: 1px solid #444; display: flex; align-items: center;
+            justify-content: center; position: relative; box-shadow: inset 0 0 50px rgba(0,0,0,0.8);
+            flex: 1; min-height: 400px;
+        }
+        .go-board {
+            display: grid; grid-template-columns: repeat(19, 1fr); grid-template-rows: repeat(19, 1fr);
+            width: 100%; max-width: 550px; aspect-ratio: 1/1;
+            background-image: linear-gradient(var(--grid-line) 1px, transparent 1px), linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+            background-size: 5.26% 5.26%; background-position: center;
+        }
+        .intersection { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; position: relative; }
+        
+        .node { 
+            width: 12px; height: 12px; border-radius: 50%; background: #222; 
+            transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; 
+            font-size: 9px; font-weight: bold; color: transparent; 
+        }
+        
+        /* Node States */
+        .node.q0 { background: rgba(0, 255, 65, 0.15); border: 1px solid rgba(0, 255, 65, 0.3); }
+        .node.q1 { background: var(--q1-amber); box-shadow: 0 0 8px var(--q1-amber); }
+        .node.q2 { background: var(--q2-red); box-shadow: 0 0 12px var(--q2-red); }
+        .node.q3 { background: var(--q3-purple); box-shadow: 0 0 12px var(--q3-purple); }
+        .node.els-active {
+            background: var(--els-cyan); color: #000;
+            box-shadow: 0 0 15px var(--els-cyan), 0 0 30px var(--els-cyan); transform: scale(1.5); z-index: 5;
+        }
+
+        /* --- 1D TEXTSTRING BUFFER --- */
+        .textstring-panel {
+            background: #080808; border: 1px solid var(--q0-green);
+            display: flex; flex-direction: column;
+        }
+        .textstring-header { background: var(--q0-green); color: #000; padding: 4px 10px; font-weight: bold; font-size: 0.75rem; text-transform: uppercase; }
+        #textstring-buffer {
+            padding: 10px; font-size: 0.85rem; line-height: 1.4; letter-spacing: 2px;
+            word-break: break-all; color: #444; height: 110px; overflow-y: auto;
+        }
+        .ts-char { transition: color 0.1s, text-shadow 0.1s; font-weight: bold; }
+        .ts-q0 { color: rgba(0, 255, 65, 0.4); }
+        .ts-q1 { color: var(--q1-amber); }
+        .ts-q2 { color: var(--q2-red); text-shadow: 0 0 5px var(--q2-red); }
+        .ts-q3 { color: var(--q3-purple); }
+        .ts-els { color: #fff; background: var(--els-cyan); padding: 0 2px; border-radius: 2px; text-shadow: 0 0 5px #000; }
+
+        /* --- SIDEBAR TERMINALS --- */
+        .sidebar { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+        .panel { border: 1px solid var(--grid-line); background: #0a0a0a; display: flex; flex-direction: column; min-height: 0;}
+        .panel-header { padding: 5px 10px; font-weight: bold; font-size: 0.75rem; text-transform: uppercase; }
+        
+        .cbor-header { background: #222; color: var(--q0-green); border-bottom: 1px solid var(--q0-green); }
+        #cbor-log { flex: 3; overflow-y: auto; padding: 10px; font-size: 0.7rem; color: #fff; }
+        .log-entry { margin-bottom: 8px; border-bottom: 1px dashed #1a1a1a; padding-bottom: 4px; }
+        .hex-dump { color: #666; word-break: break-all; display: block; margin-top: 2px; font-size: 0.65rem; }
+        
+        .els-header { background: var(--els-cyan); color: #000; }
+        #els-log { flex: 2; overflow-y: auto; padding: 10px; font-size: 0.75rem; color: var(--els-cyan); border-top: 1px solid var(--els-cyan);}
+        .els-hit { background: rgba(0, 229, 255, 0.1); border-left: 3px solid var(--els-cyan); padding: 5px; margin-bottom: 5px; }
+    </style>
+</head>
+<body>
+
+<header>
+    <div>VORTEX PHASE MONITOR v11.0 // KYBERNETIKA 1978 DE BRUIJN ENCODER</div>
+    <div>
+        <span class="danger-badge">UNENCRYPTED STREAM</span> 
+        <span class="status-badge">RAW CBOR ACTIVE</span>
+    </div>
+</header>
+
+<main>
+    <div class="spatial-column">
+        <div class="grid-container">
+            <div class="go-board" id="matrix"></div>
+        </div>
+        
+        <div class="textstring-panel">
+            <div class="textstring-header">1D Linear Buffer (De Bruijn Sequence Tracker)</div>
+            <div id="textstring-buffer">
+                </div>
+        </div>
+    </div>
+
+    <div class="sidebar">
+        <div class="panel" style="flex: 3; border-color: var(--q0-green);">
+            <div class="panel-header cbor-header">Raw Quaternary Payload Stream (CBOR Hex)</div>
+            <div id="cbor-log">
+                <div class="log-entry" style="color: var(--q0-green);">[SYS] Connecting to unencrypted local stream...</div>
+            </div>
+        </div>
+
+        <div class="panel" style="flex: 2; border-color: var(--els-cyan);">
+            <div class="panel-header els-header">Spatial Extraction (Q-States & ELS)</div>
+            <div id="els-log">
+                <div style="color: #888; font-style: italic;">Monitoring discrete positions for ELS patterns...</div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script>
+    const matrix = document.getElementById('matrix');
+    const textBuffer = document.getElementById('textstring-buffer');
+    const cborLog = document.getElementById('cbor-log');
+    const elsLog = document.getElementById('els-log');
+    
+    const gridData = [];
+    // Woordenboek geüpdatet met academische en project-specifieke termen
+    const dictionary = ["KYBERNETIKA", "DE-BRUIJN", "CYCLE", "TORUS", "VORTEX", "STASIS", "QUATRON", "LYNDON"];
+    const allowedSkips = [1, 19, 20, 18];
+
+    // --- 1. INITIALISEER 19x19 GRID & 1D BUFFER ---
+    function initGrid() {
+        let initialStringHTML = '';
+        for (let i = 0; i < 361; i++) {
+            const char = String.fromCharCode(65 + Math.floor(Math.random() * 26));
+            
+            // Go-board Node
+            const container = document.createElement('div');
+            container.className = 'intersection';
+            const node = document.createElement('div');
+            node.className = 'node q0'; 
+            node.innerText = char;
+            container.appendChild(node);
+            matrix.appendChild(container);
+            
+            // Master data opslag
+            gridData.push({ element: node, char: char, state: 'q0' });
+
+            // 1D Textstring element
+            initialStringHTML += `<span class="ts-char ts-q0" id="ts-${i}">${char}</span>`;
+        }
+        textBuffer.innerHTML = initialStringHTML;
+    }
+
+    // --- 2. DATA GENERATIE -> RAW CBOR ---
+    function simulateRawStream() {
+        const isElsHit = Math.random() > 0.80; 
+        
+        // Payload structuur: { 1: timestamp, 2: entropy, 3: elsFlag, 4: elsWord, 5: elsStart, 6: dataArray }
+        let payload = { 1: Date.now(), 2: (Math.random() * 0.3 + 0.6).toFixed(3), 3: false, 6: [] };
+
+        if (isElsHit) {
+            const word = dictionary[Math.floor(Math.random() * dictionary.length)];
+            const skip = allowedSkips[Math.floor(Math.random() * allowedSkips.length)];
+            payload[3] = true; 
+            payload[4] = word; 
+            payload[5] = Math.max(0, Math.floor(Math.random() * (361 - (word.length * skip)))); 
+            payload[6] = skip;
+        } else {
+            // Generatie van Quaternaire staten (1 t/m 3)
+            const numAnomalies = Math.floor(Math.random() * 8) + 2;
+            for(let i=0; i<numAnomalies; i++) {
+                payload[6].push([ Math.floor(Math.random()*19), Math.floor(Math.random()*19), Math.floor(Math.random()*3) + 1 ]);
+            }
+        }
+
+        // Encodeer direct naar CBOR
+        const cborBuffer = CBOR.encode(payload);
+        const hexDump = buf2hex(cborBuffer);
+
+        // GEEN DECRYPTIE. Decodeer direct de CBOR payload.
+        try {
+            const decodedData = CBOR.decode(cborBuffer);
+            processRawData(decodedData, hexDump);
+        } catch (e) { 
+            console.error("CBOR Parsing error!", e); 
+        }
+    }
+
+    // --- 3. VISUALISATIE (2D GRID + 1D TEXTSTRING) ---
+    function processRawData(data, cborHex) {
+        // Raw CBOR Log
+        const entry = document.createElement('div');
+        entry.className = 'log-entry';
+        entry.innerHTML = `<span style="color: var(--q0-green); font-weight:bold;">[RAW_RX]</span> Entropy: ${data[2]} <br><span class="hex-dump">CBOR: ${cborHex}</span>`;
+        cborLog.prepend(entry);
+        if (cborLog.childNodes.length > 25) cborLog.lastChild.remove();
+
+        // 1. Reset Grid naar Stasis (Q0)
+        gridData.forEach((item, index) => {
+            if(item.state !== 'q0') {
+                item.state = 'q0';
+                item.char = String.fromCharCode(65 + Math.floor(Math.random() * 26));
+                item.element.className = 'node q0';
+                item.element.innerText = item.char;
+                
+                const tsChar = document.getElementById(`ts-${index}`);
+                tsChar.className = 'ts-char ts-q0';
+                tsChar.innerText = item.char;
+            }
+        });
+
+        // 2. ELS OF QUATERNAIRE UPDATE
+        if (data[3] === true) {
+            const word = data[4]; const start = data[5]; const skip = data[6];
+            
+            const elsEntry = document.createElement('div');
+            elsEntry.className = 'els-hit';
+            elsEntry.innerHTML = `> ELS MATCH: <strong>${word}</strong> [Idx ${start}, Skip ${skip}]`;
+            elsLog.prepend(elsEntry);
+            if (elsLog.childNodes.length > 10) elsLog.lastChild.remove();
+
+            for (let i = 0; i < word.length; i++) {
+                const targetIdx = start + (i * skip);
+                if (targetIdx < 361) {
+                    gridData[targetIdx].state = 'els';
+                    gridData[targetIdx].element.className = 'node els-active';
+                    gridData[targetIdx].element.innerText = word[i];
+                    
+                    const tsChar = document.getElementById(`ts-${targetIdx}`);
+                    tsChar.className = 'ts-char ts-els';
+                    tsChar.innerText = word[i];
+                }
+            }
+        } else {
+            // Plot Q1, Q2, Q3 Anomalieën op de Discrete Posities
+            data[6].forEach(anomaly => {
+                const idx = (anomaly[1] * 19) + anomaly[0];
+                const qState = anomaly[2]; 
+                if(idx < 361) {
+                    gridData[idx].state = `q${qState}`;
+                    gridData[idx].element.className = `node q${qState}`;
+                    
+                    const tsChar = document.getElementById(`ts-${idx}`);
+                    tsChar.className = `ts-char ts-q${qState}`;
+                }
+            });
+        }
+    }
+
+    function buf2hex(buffer) { return Array.prototype.map.call(new Uint8Array(buffer), x => ('00' + x.toString(16)).slice(-2).toUpperCase()).join(' '); }
+
+    // Start Systeem
+    initGrid();
+    setInterval(simulateRawStream, 1500); // 1.5s cyclus
+</script>
+
+</body>
+</html>

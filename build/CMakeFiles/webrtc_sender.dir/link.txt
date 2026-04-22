@@ -1,0 +1,1 @@
+/usr/bin/c++ CMakeFiles/webrtc_sender.dir/apps/webrtc_sender.cpp.o -o webrtc_sender  -Wl,-rpath,/usr/local/lib /usr/local/lib/libdatachannel.so.0.24.2 

@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VORTEX // Sferische Transformatie</title>
+    <style>
+        :root {
+            --neon-green: #00ff41;
+            --alert-red: #ff003c;
+            --bg-color: #050505;
+            --grid-color: rgba(0, 255, 65, 0.1);
+        }
+        
+        body {
+            background-color: var(--bg-color);
+            color: var(--neon-green);
+            font-family: 'Courier New', Courier, monospace;
+            margin: 0;
+            padding: 20px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* CRT Effect */
+        body::after {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            z-index: 2;
+            background-size: 100% 2px, 3px 100%;
+            pointer-events: none;
+        }
+
+        .container {
+            width: 900px;
+            border: 2px solid var(--neon-green);
+            padding: 20px;
+            position: relative;
+            z-index: 3;
+            box-shadow: 0 0 10px rgba(0, 255, 65, 0.2);
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--neon-green);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+
+        .dashboard {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .panel {
+            border: 1px dashed var(--neon-green);
+            padding: 15px;
+            flex: 1;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        input[type=range] {
+            width: 100%;
+            accent-color: var(--neon-green);
+            cursor: ew-resize;
+        }
+
+        .data-value {
+            font-size: 1.2em;
+            font-weight: bold;
+            display: block;
+            margin-top: 5px;
+        }
+
+        .status-box {
+            text-align: center;
+            font-size: 1.5em;
+            padding: 10px;
+            border: 2px solid var(--neon-green);
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .alert-mode {
+            color: var(--alert-red);
+            border-color: var(--alert-red);
+            text-shadow: 0 0 5px var(--alert-red);
+            animation: blink 1s infinite alternate;
+        }
+
+        @keyframes blink {
+            0% { opacity: 1; }
+            100% { opacity: 0.7; }
+        }
+
+        canvas {
+            background-color: #001100;
+            border: 1px solid var(--neon-green);
+            width: 100%;
+            height: 300px;
+            background-image: 
+                linear-gradient(var(--grid-color) 1px, transparent 1px),
+                linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="header">
+            <span>VORTEX // IONOSFERISCHE CASCADE MONITOR</span>
+            <span>NODE: LAREN ↔ ANTIPODE</span>
+        </div>
+
+        <div class="status-box" id="statusBox">
+            [ MODE: VECTOR D=0 (STASIS LOCK) ]
+        </div>
+
+        <div class="dashboard">
+            <div class="panel">
+                <h3>// OMGEVINGSINPUT</h3>
+                <div class="control-group">
+                    <label>ZONNE-ELEVATIE LAREN (GRADEN)</label>
+                    <input type="range" id="elevationSlider" min="5.0" max="15.0" step="0.1" value="8.5">
+                    <span class="data-value" id="elevationDisplay">+8.5°</span>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h3>// MIRROR STREAM TELEMETRIE</h3>
+                <div>Sync (S): <span class="data-value" id="syncDisplay">19.04</span></div>
+                <div>Error (E): <span class="data-value" id="errorDisplay">18.00</span></div>
+                <div>Phase (P): <span class="data-value" id="phaseDisplay">24.12</span></div>
+            </div>
+        </div>
+
+        <div>
+            <h3>// OSCILLOSCOOP WERKVELD (S, E, P)</h3>
+            <canvas id="oscilloscope" width="850" height="300"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('oscilloscope');
+        const ctx = canvas.getContext('2d');
+        const elevationSlider = document.getElementById('elevationSlider');
+        const elevationDisplay = document.getElementById('elevationDisplay');
+        const syncDisplay = document.getElementById('syncDisplay');
+        const errorDisplay = document.getElementById('errorDisplay');
+        const phaseDisplay = document.getElementById('phaseDisplay');
+        const statusBox = document.getElementById('statusBox');
+
+        let time = 0;
+        let isCascade = false;
+
+        function drawWave(yOffset, frequency, amplitude, color, jitterLevel, isPulse) {
+            ctx.beginPath();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            
+            for (let x = 0; x < canvas.width; x++) {
+                let jitter = (Math.random() - 0.5) * jitterLevel;
+                let wave;
+                
+                if (isPulse) {
+                    // Complexe pulsgolf (P-signaal)
+                    wave = Math.sin((x + time) * frequency) + Math.sin((x + time) * frequency * 2.5);
+                    wave = wave > 0 ? amplitude : -amplitude;
+                } else {
+                    // Standaard blokgolf (S en E signalen)
+                    wave = Math.sin((x + time) * frequency) > 0 ? amplitude : -amplitude;
+                }
+                
+                ctx.lineTo(x, yOffset + wave + jitter);
+            }
+            ctx.stroke();
+        }
+
+        function updateTelemetry() {
+            let elevation = parseFloat(elevationSlider.value);
+            elevationDisplay.innerText = `+${elevation.toFixed(1)}°`;
+
+            if (elevation < 10.0) {
+                // STASIS MODE
+                isCascade = false;
+                statusBox.className = "status-box";
+                statusBox.innerText = "[ MODE: VECTOR D=0 (STASIS LOCK) ]";
+                
+                // Simuleer stabiele waarden met lichte natuurlijke drift
+                let sVal = 19.04 + (Math.random() * 0.05);
+                let eVal = 18.00;
+                let pVal = 24.12 + (elevation - 8.5) * 0.1; 
+
+                syncDisplay.innerText = sVal.toFixed(2);
+                errorDisplay.innerText = eVal.toFixed(2);
+                phaseDisplay.innerText = pVal.toFixed(2);
+                
+                syncDisplay.style.color = "var(--neon-green)";
+
+            } else {
+                // CASCADE MODE (VECTOR D=1)
+                isCascade = true;
+                statusBox.className = "status-box alert-mode";
+                statusBox.innerText = "[ WAARSCHUWING: VECTOR D=1 ACTIVE / CASCADE DETECTED ]";
+                
+                // Simuleer heftige jitter en crypto shift
+                let sVal = 20.00 + (Math.random() * 3.5);
+                let eVal = 18.00 + (Math.random() * 0.5);
+                let pVal = 24.50 + (Math.random() * 2.0); 
+
+                syncDisplay.innerText = sVal.toFixed(2) + " !!";
+                errorDisplay.innerText = eVal.toFixed(2);
+                phaseDisplay.innerText = pVal.toFixed(2) + " ERR";
+                
+                syncDisplay.style.color = "var(--alert-red)";
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Bepaal parameters op basis van state
+            let baseFreq = isCascade ? 0.08 : 0.02;
+            let pFreq = isCascade ? 0.1 : 0.03;
+            let jitterS = isCascade ? 15 : 1;
+            let jitterP = isCascade ? 8 : 1;
+            let timeStep = isCascade ? 5 : 2;
+            let colorS = isCascade ? "#ff003c" : "#00ff41";
+
+            // Teken de 3 signalen
+            drawWave(60, baseFreq, 30, colorS, jitterS, false);    // Sync (S)
+            drawWave(150, baseFreq * 1.1, 30, "#00ff41", 0, false); // Error (E)
+            drawWave(240, pFreq, 30, "#00ff41", jitterP, true);     // Phase (P)
+
+            time += timeStep;
+            requestAnimationFrame(draw);
+        }
+
+        elevationSlider.addEventListener('input', updateTelemetry);
+        
+        // Init
+        updateTelemetry();
+        draw();
+    </script>
+</body>
+</html>

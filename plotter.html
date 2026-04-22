@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VORTEX // MASTER_INTEGRATION_v30.0</title>
+    <style>
+        :root {
+            --bg: #000a00; --panel: #001800; --accent: #00ff41; 
+            --solar: #ffcc00; --anti: #ff00ff; --net: #00d4ff; --vega: #ffffff;
+            --border: #004400; --grid: rgba(0, 255, 65, 0.05);
+        }
+
+        body {
+            margin: 0; background: var(--bg); color: var(--accent);
+            font-family: 'JetBrains Mono', monospace;
+            display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+            background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+            background-size: 30px 30px;
+        }
+
+        header {
+            padding: 10px 20px; background: var(--panel); border-bottom: 2px solid var(--accent);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+
+        .master-bar {
+            background: rgba(0, 25, 0, 0.95); display: grid; grid-template-columns: repeat(4, 1fr);
+            padding: 10px; border-bottom: 1px solid var(--border); font-size: 0.75rem; text-align: center;
+        }
+
+        .main-layout { display: grid; grid-template-columns: 1fr 340px; flex: 1; overflow: hidden; }
+
+        .node-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 10px; padding: 12px; overflow-y: auto; border-right: 1px solid var(--border);
+        }
+
+        .card { background: rgba(0,12,0,0.9); border: 1px solid var(--border); padding: 12px; border-radius: 2px; position: relative; }
+        .card:hover { border-color: var(--accent); box-shadow: 0 0 15px rgba(0,255,65,0.2); }
+
+        .section-label { font-size: 0.45rem; opacity: 0.8; text-transform: uppercase; margin: 8px 0 4px 0; border-left: 2px solid var(--accent); padding-left: 5px; }
+        .val-row { display: flex; justify-content: space-between; font-size: 0.65rem; margin-top: 2px; }
+        .clock { font-size: 1.1rem; font-weight: bold; font-variant-numeric: tabular-nums; }
+        
+        .sidebar { padding: 10px; display: flex; flex-direction: column; gap: 12px; background: rgba(0,5,0,0.6); overflow-y: auto; }
+        .side-card { background: rgba(0,25,0,0.85); border: 1px solid var(--border); padding: 12px; border-radius: 4px; }
+
+        .plus { color: var(--accent); }
+        .min { color: #ff3333; }
+
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-thumb { background: var(--accent); }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div style="font-weight: bold; letter-spacing: 1.5px;">OPERATOR: RIANNE GOIJARTS // TEKTRONIC_V30_COMPLETE</div>
+        <div style="font-size: 0.7rem; color: var(--net);">𝕏_SYNC: ACTIVE // UPLINK: STABLE</div>
+    </header>
+
+    <div class="master-bar">
+        <div>GMT_REF: <span id="gmt-master">00:00:00</span></div>
+        <div>VADC (YR 0): <span id="adc-0">0</span></div>
+        <div>VDC (YR 1000): <span id="adc-1000">0</span></div>
+        <div>SATELLITE: <span id="iss-status" style="color:var(--net)">ISS_TRACKING</span></div>
+    </div>
+
+    <div class="main-layout">
+        <div class="node-grid" id="nodeGrid"></div>
+
+        <aside class="sidebar">
+            <div class="side-card" style="border-color: var(--net);">
+                <div class="section-label" style="color:var(--net)">🛰️ ISS POSITION TELEMETRY</div>
+                <div class="val-row"><span>LATITUDE:</span><span id="iss-lat">0.0000</span></div>
+                <div class="val-row"><span>LONGITUDE:</span><span id="iss-lon">0.0000</span></div>
+                <div class="val-row"><span>ALTITUDE:</span><span>418.2 km</span></div>
+                <div class="val-row"><span>VELOCITY:</span><span>27,600 km/h</span></div>
+            </div>
+
+            <div class="side-card">
+                <div class="section-label">🌊 ENVIRONMENT (LAREN/NL)</div>
+                <div class="val-row"><span>WATER_LVL:</span><span id="water-lvl">+0.14m NAP</span></div>
+                <div class="val-row"><span>WIND_SPEED:</span><span id="wind-spd">4.8 m/s</span></div>
+                <div class="val-row"><span>HUMIDITY:</span><span>74%</span></div>
+            </div>
+
+            <div class="side-card" style="border-color: #ff4400;">
+                <div class="section-label" style="color:#ff4400">📡 SIGNAL_METRICS</div>
+                <div class="val-row"><span>UPLINK_DELAY:</span><span id="up">22ms</span></div>
+                <div class="val-row"><span>DOWN_DELAY:</span><span id="down">19ms</span></div>
+                <div class="val-row"><span>JITTER:</span><span id="jitter">1.12ms</span></div>
+                <div class="val-row"><span>DROPOUT:</span><span class="plus">0.00%</span></div>
+            </div>
+
+            <div class="side-card" style="border-color: var(--anti);">
+                <div class="section-label" style="color:var(--anti)">𝕏_OPERATOR_DATA</div>
+                <div class="val-row"><span>ID:</span><span>Rianne Goijarts</span></div>
+                <div class="val-row"><span>ROLE:</span><span>Vortex Master Op</span></div>
+                <div class="val-row"><span>LOC:</span><span>Laren, NH, NL</span></div>
+            </div>
+        </aside>
+    </div>
+
+    <script>
+        const nodes = [
+            { name: "Greenwich (UK)", lat: 51.47, lon: 0.00 },
+            { name: "Laren (NH) [M]", lat: 52.22, lon: 5.17 },
+            { name: "Noordpool", lat: 90.00, lon: 0.00 },
+            { name: "Zuidpool", lat: -90.00, lon: 0.00 },
+            { name: "Oude Kerk (AMS)", lat: 52.37, lon: 4.89 },
+            { name: "Pentagon (USA)", lat: 38.87, lon: -77.05 },
+            { name: "Roma (IT)", lat: 41.90, lon: 12.49 },
+            { name: "Zwolle (OV)", lat: 52.51, lon: 6.09 },
+            { name: "Tholen (ZE)", lat: 51.53, lon: 4.22 },
+            { name: "Stonehenge (UK)", lat: 51.17, lon: -1.82 },
+            { name: "Stockholm (SE)", lat: 59.32, lon: 18.06 },
+            { name: "Franeker (FR)", lat: 53.18, lon: 5.54 },
+            { name: "Paris (FR)", lat: 48.85, lon: 2.35 },
+            { name: "Lisboa (PT)", lat: 38.72, lon: -9.14 }
+        ];
+
+        const E0 = new Date('0000-01-01T00:00:00Z').getTime();
+        const E1000 = new Date('1000-01-01T00:00:00Z').getTime();
+        const VEGA = { ra: 18.61, dec: 38.78 };
+        const ORION = { ra: 5.60, dec: -1.20 };
+
+        function init() {
+            const grid = document.getElementById('nodeGrid');
+            nodes.forEach((n, i) => {
+                grid.innerHTML += `
+                    <div class="card">
+                        <div style="font-size:0.8rem; font-weight:bold; color:var(--accent); border-bottom:1px solid var(--border);">${n.name}</div>
+                        
+                        <div class="section-label">Temporal Reference</div>
+                        <div class="clock" id="local-${i}">00:00:00</div>
+                        <div class="clock" id="solar-${i}" style="color:var(--solar); font-size:0.85rem;">00:00:00 (SOLAR)</div>
+                        
+                        <div class="section-label">Stellar Altitude (±)</div>
+                        <div class="val-row"><span style="color:var(--vega)">VEGA:</span><span id="v-${i}" class="val">0.00°</span></div>
+                        <div class="val-row"><span>ORION:</span><span id="o-${i}" class="val">0.00°</span></div>
+
+                        <div class="section-label">Inverse (Antipode)</div>
+                        <div class="val-row" style="color:var(--anti)"><span>L/O:</span><span>${-n.lat.toFixed(1)} / ${(n.lon > 0 ? n.lon-180 : n.lon+180).toFixed(1)}</span></div>
+                    </div>`;
+            });
+            update();
+            setInterval(fetchISS, 5000);
+        }
+
+        async function fetchISS() {
+            try {
+                const res = await fetch('https://api.wheretheiss.at/v1/satellites/25544');
+                const d = await res.json();
+                document.getElementById('iss-lat').innerText = d.latitude.toFixed(4);
+                document.getElementById('iss-lon').innerText = d.longitude.toFixed(4);
+            } catch(e) {}
+        }
+
+        function calculateAlt(lat, lon, ra, dec) {
+            const now = new Date();
+            const utcHours = now.getUTCHours() + now.getUTCMinutes()/60 + now.getUTCSeconds()/3600;
+            const lst = (100.46 + 0.9856 * 1 + lon + 15 * utcHours) % 360;
+            const ha = (lst - (ra * 15) + 360) % 360;
+            const phi = lat * Math.PI/180;
+            const delta = dec * Math.PI/180;
+            const h = ha * Math.PI/180;
+            const sinAlt = Math.sin(phi) * Math.sin(delta) + Math.cos(phi) * Math.cos(delta) * Math.cos(h);
+            return Math.asin(sinAlt) * 180/Math.PI;
+        }
+
+        function update() {
+            const now = new Date();
+            const time = now.getTime();
+            
+            document.getElementById('gmt-master').innerText = now.getUTCHours().toString().padStart(2,'0') + ":" + now.getUTCMinutes().toString().padStart(2,'0') + ":" + now.getUTCSeconds().toString().padStart(2,'0');
+            document.getElementById('adc-0').innerText = ((time - E0) / 86400000).toFixed(6);
+            document.getElementById('adc-1000').innerText = ((time - E1000) / 86400000).toFixed(6);
+
+            // Network Simulation
+            document.getElementById('up').innerText = (20 + Math.random() * 5).toFixed(1) + "ms";
+            document.getElementById('jitter').innerText = (Math.random() * 1.5).toFixed(2) + "ms";
+
+            nodes.forEach((n, i) => {
+                document.getElementById(`local-${i}`).innerText = now.toLocaleTimeString('nl-NL') + "." + String(now.getMilliseconds()).padStart(3, '0');
+                
+                const sOffset = n.lon * 4 * 60000;
+                const sDate = new Date(time + (now.getTimezoneOffset() * 60000) + sOffset);
+                document.getElementById(`solar-${i}`).innerText = sDate.toLocaleTimeString('nl-NL');
+                
+                // Stellar Updates
+                const vAlt = calculateAlt(n.lat, n.lon, VEGA.ra, VEGA.dec);
+                const oAlt = calculateAlt(n.lat, n.lon, ORION.ra, ORION.dec);
+                
+                const vEl = document.getElementById(`v-${i}`);
+                vEl.innerText = (vAlt > 0 ? "+" : "") + vAlt.toFixed(2) + "°";
+                vEl.className = vAlt > 0 ? "plus" : "min";
+
+                const oEl = document.getElementById(`o-${i}`);
+                oEl.innerText = (oAlt > 0 ? "+" : "") + oAlt.toFixed(2) + "°";
+                oEl.className = oAlt > 0 ? "plus" : "min";
+            });
+
+            requestAnimationFrame(update);
+        }
+        window.onload = init;
+    </script>
+</body>
+</html>

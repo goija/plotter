@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VORTEX OMNI-BRIDGE | Antipodal Hub & Telemetry</title>
+    <style>
+        :root {
+            --bg: #020617;
+            --panel: #0f172a;
+            --master: #facc15;
+            --border: #1e293b;
+            --text: #f8fafc;
+            --accent: #00f2ff;
+            --solar: #fbbf24;
+            --nl-node: #22c55e;
+            --antipodal: #ec4899;
+            --dim: #64748b;
+            --telemetry: #38bdf8;
+            --success: #10b981;
+        }
+        body {
+            margin: 0; background: var(--bg); color: var(--text);
+            font-family: 'Inter', system-ui, sans-serif;
+            display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+        }
+        header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 15px 25px; border-bottom: 1px solid var(--border); background: var(--panel);
+        }
+        .logo-text { font-weight: bold; color: var(--master); letter-spacing: 2px; font-size: 1.1rem; }
+        main { flex: 1; overflow-y: auto; padding: 20px; box-sizing: border-box; }
+        .node-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 15px; max-width: 1800px; margin: 0 auto;
+        }
+        .node-card {
+            background: var(--panel); border: 1px solid var(--border);
+            border-radius: 12px; padding: 20px; position: relative;
+        }
+        .node-card.master {
+            grid-column: 1 / -1; border: 2px solid var(--master);
+            background: linear-gradient(90deg, rgba(250,204,21,0.1) 0%, rgba(15,23,42,1) 100%);
+            margin-bottom: 20px;
+        }
+        .node-card.nl-special { border-color: var(--nl-node); }
+        
+        /* Antipodal & Telemetry UI Elements */
+        .antipodal-panel {
+            margin-top: 15px; padding: 10px; border-radius: 8px;
+            background: rgba(236, 72, 153, 0.05); border: 1px solid rgba(236, 72, 153, 0.2);
+        }
+        .telemetry-panel {
+            margin-top: 10px; padding: 10px; border-radius: 8px;
+            background: rgba(56, 189, 248, 0.05); border: 1px solid rgba(56, 189, 248, 0.2);
+            font-family: monospace; font-size: 0.75rem; color: var(--telemetry);
+        }
+        .telemetry-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 5px; }
+        
+        .anti-label { font-size: 0.6rem; color: var(--antipodal); text-transform: uppercase; font-weight: bold; }
+        .anti-coords { font-family: monospace; font-size: 0.85rem; color: var(--text); font-weight: bold; }
+        
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+        .online { background: var(--success); box-shadow: 0 0 8px var(--success); }
+        .time-standard { font-family: monospace; font-size: 1.6rem; font-weight: bold; margin: 5px 0; }
+        .master .time-standard { font-size: 3.5rem; color: var(--master); }
+        .solar-box { color: var(--solar); font-size: 0.8rem; font-family: monospace; margin-bottom: 5px; }
+        
+        #search-box {
+            background: #020617; border: 1px solid var(--border); color: white;
+            padding: 8px 15px; border-radius: 6px; width: 280px; outline: none;
+        }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo-text">VORTEX_OMNI_BRIDGE // DEEP_SPACE_SYNC</div>
+        <input type="text" id="search-box" placeholder="Filter op stad of regio...">
+    </header>
+    <main>
+        <div class="node-grid" id="nodeContainer"></div>
+    </main>
+    <script>
+        const nodesData = [
+            { id: "MASTER", name: "Laren (NH) // COMMAND", lat: 52.2200, lon: 5.1700, isMaster: true, type: "CORE_HUB" },
+            { id: 202, name: "Zwolle", lat: 52.51, lon: 6.09, type: "REGIONAL_HUB", isNL: true },
+            { id: 203, name: "Franeker", lat: 53.18, lon: 5.54, type: "NORTH_NODE", isNL: true }
+        ];
+
+        // Vul aan tot 15 nodes voor overzichtelijkheid
+        for (let i = nodesData.length; i < 15; i++) {
+            nodesData.push({ 
+                id: 300 + i, name: "Satellite Node", 
+                lat: (Math.random() * 180 - 90), lon: (Math.random() * 360 - 180), 
+                type: "CLOUD_EDGE", isNL: false 
+            });
+        }
+
+        // Antipodal berekening met override voor Master
+        function getAntipodal(lat, lon, isMaster) {
+            if (isMaster) return { lat: "-52.2200", lon: "-174.8300" }; // Hardcoded override zoals gevraagd
+            const antiLat = -lat;
+            const antiLon = lon > 0 ? lon - 180 : lon + 180;
+            return { lat: antiLat.toFixed(4), lon: antiLon.toFixed(4) };
+        }
+
+        function calculateSolarTime(longitude) {
+            const now = new Date();
+            const utcMin = (now.getUTCHours() * 60) + now.getUTCMinutes() + (now.getUTCSeconds() / 60);
+            let solarMin = (utcMin + (longitude * 4) + 1440) % 1440;
+            const h = Math.floor(solarMin / 60);
+            const m = Math.floor(solarMin % 60);
+            return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+        }
+
+        function buildGrid(filter = "") {
+            const container = document.getElementById('nodeContainer');
+            const filtered = nodesData.filter(n => n.name.toLowerCase().includes(filter));
+            
+            container.innerHTML = filtered.map(node => {
+                const anti = getAntipodal(node.lat, node.lon, node.isMaster);
+                
+                let telemetryHTML = "";
+                if (node.isMaster) {
+                    telemetryHTML = `
+                    <div class="telemetry-panel">
+                        <div style="color: #fff; border-bottom: 1px solid var(--border); padding-bottom: 5px; margin-bottom: 5px;">ASTROMETRIC_TELEMETRY_LINK</div>
+                        <div class="telemetry-grid">
+                            <div>ISS N/S SNELHEID:</div><div style="text-align: right;"><span id="iss-vel">7.66</span> km/s</div>
+                            <div>MAAN VERTRAGING:</div><div style="text-align: right;"><span id="moon-del">1.28</span> s <span style="color:var(--dim)">[<span id="moon-jit">12</span>ms jit]</span></div>
+                            <div>VEGA JITTER:</div><div style="text-align: right;"><span id="vega-jit">45</span> ms</div>
+                            <div>DENEB JITTER:</div><div style="text-align: right;"><span id="deneb-jit">82</span> ms</div>
+                            <div>ORION JITTER:</div><div style="text-align: right;"><span id="orion-jit">104</span> ms</div>
+                            <div>LEEUW (LEO) JITTER:</div><div style="text-align: right;"><span id="leo-jit">38</span> ms</div>
+                        </div>
+                    </div>`;
+                }
+
+                return `
+                <div class="node-card ${node.isMaster ? 'master' : ''} ${node.isNL ? 'nl-special' : ''}">
+                    <div style="font-size:0.6rem; color:var(--dim)">${node.type} // ID_${node.id}</div>
+                    <div class="city-name" style="font-weight:bold; ${node.isMaster ? 'font-size:1.4rem; color:var(--master)' : ''}">${node.name}</div>
+                    <div class="time-standard" id="st-${node.id}">00:00:00</div>
+                    <div class="solar-box">SOLAR_SYNC: <span id="sol-${node.id}">00:00</span></div>
+                    
+                    <div class="antipodal-panel">
+                        <div class="anti-label">Antipodal Mirror Point</div>
+                        <div class="anti-coords">LAT: ${anti.lat} // LON: ${anti.lon}</div>
+                        <div style="font-size: 0.6rem; color: var(--antipodal); margin-top: 5px;">
+                            <span class="status-dot online"></span> MIRROR_STREAM_ACTIVE
+                        </div>
+                    </div>
+                    ${telemetryHTML}
+                </div>
+            `}).join('');
+        }
+
+        // Simuleer real-time fluctuaties
+        function updateTelemetry() {
+            const jitter = (base, variance) => (base + (Math.random() * variance - variance / 2)).toFixed(1);
+            
+            const els = {
+                iss: document.getElementById('iss-vel'),
+                moonDel: document.getElementById('moon-del'),
+                moonJit: document.getElementById('moon-jit'),
+                vega: document.getElementById('vega-jit'),
+                deneb: document.getElementById('deneb-jit'),
+                orion: document.getElementById('orion-jit'),
+                leo: document.getElementById('leo-jit')
+            };
+
+            if (els.iss) {
+                els.iss.innerText = jitter(7.66, 0.05); // ISS orbital speed fluctuation
+                els.moonDel.innerText = jitter(1.282, 0.005);
+                els.moonJit.innerText = Math.floor(Math.random() * 15) + 5;
+                els.vega.innerText = jitter(45, 8);
+                els.deneb.innerText = jitter(82, 12);
+                els.orion.innerText = jitter(104, 20);
+                els.leo.innerText = jitter(38, 5);
+            }
+        }
+
+        function update() {
+            const now = new Date();
+            nodesData.forEach(node => {
+                const st = document.getElementById(`st-${node.id}`);
+                const sol = document.getElementById(`sol-${node.id}`);
+                if (st) st.innerText = now.toLocaleTimeString('nl-NL', { hour12: false });
+                if (sol) sol.innerText = calculateSolarTime(node.lon);
+            });
+            updateTelemetry();
+        }
+
+        document.getElementById('search-box').addEventListener('input', e => buildGrid(e.target.value.toLowerCase()));
+        
+        buildGrid();
+        setInterval(update, 1000);
+        update();
+    </script>
+</body>
+</html>

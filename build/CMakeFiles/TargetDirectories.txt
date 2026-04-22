@@ -1,0 +1,3 @@
+/home/ontwerp/Downloads/plotter/build/CMakeFiles/webrtc_sender.dir
+/home/ontwerp/Downloads/plotter/build/CMakeFiles/edit_cache.dir
+/home/ontwerp/Downloads/plotter/build/CMakeFiles/rebuild_cache.dir

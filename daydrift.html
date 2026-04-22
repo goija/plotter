@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VORTEX | Quaternary Matrix & Textstring RG Buffer</title>
+    <script src="https://cdn.jsdelivr.net/npm/cbor-js@0.1.0/cbor.js"></script>
+    <style>
+        :root {
+            --bg: #050505;
+            --go-board: #111;
+            --grid-line: #333;
+            
+            /* Quaternary Colors (RG Base) */
+            --q0-green: #00ff41;   /* Stasis (G) */
+            --q1-amber: #ffaa00;   /* Warning */
+            --q2-red: #ff3131;     /* Drift (R) */
+            --q3-purple: #b200ff;  /* Recovery */
+            --els-cyan: #00e5ff;   /* ELS Override */
+        }
+
+        body {
+            background-color: var(--bg); color: var(--q0-green);
+            font-family: 'IBM Plex Mono', 'Courier New', monospace;
+            margin: 0; display: flex; flex-direction: column;
+            height: 100vh; overflow: hidden;
+        }
+
+        /* --- CRT EFFECT --- */
+        body::after {
+            content: " "; display: block; position: absolute; top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
+            background-size: 100% 2px; z-index: 100; pointer-events: none;
+        }
+
+        /* --- CUSTOM SCROLLBAR --- */
+        * { scrollbar-width: thin; scrollbar-color: var(--q0-green) #0a0a0a; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #0a0a0a; border-left: 1px solid #1a1a1a; }
+        ::-webkit-scrollbar-thumb { background-color: var(--q3-purple); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background-color: var(--els-cyan); cursor: pointer; }
+
+        /* --- HEADER --- */
+        header {
+            padding: 10px 20px; border-bottom: 2px solid var(--q3-purple);
+            background: rgba(10, 0, 20, 0.8); display: flex; justify-content: space-between;
+            font-weight: bold; font-size: 0.9rem; letter-spacing: 1px; z-index: 10;
+        }
+        .crypto-badge { background: var(--q3-purple); color: #fff; padding: 2px 8px; border-radius: 2px; }
+
+        main { display: grid; grid-template-columns: 1fr 480px; flex: 1; gap: 15px; padding: 15px; min-height: 0; z-index: 10; }
+
+        /* --- LEFT COLUMN: GRID + TEXTSTRING --- */
+        .spatial-column { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+
+        /* 19x19 Grid */
+        .grid-container {
+            background: var(--go-board); border: 1px solid #444; display: flex; align-items: center;
+            justify-content: center; position: relative; box-shadow: inset 0 0 50px rgba(0,0,0,0.8);
+            flex: 1; min-height: 400px;
+        }
+        .go-board {
+            display: grid; grid-template-columns: repeat(19, 1fr); grid-template-rows: repeat(19, 1fr);
+            width: 100%; max-width: 550px; aspect-ratio: 1/1;
+            background-image: linear-gradient(var(--grid-line) 1px, transparent 1px), linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+            background-size: 5.26% 5.26%; background-position: center;
+        }
+        .intersection { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; position: relative; }
+        
+        .node { 
+            width: 12px; height: 12px; border-radius: 50%; background: #222; 
+            transition: all 0.3s ease; display: flex; align-items: center; justify-content: center; 
+            font-size: 9px; font-weight: bold; color: transparent; 
+        }
+        
+        /* Node States */
+        .node.q0 { background: rgba(0, 255, 65, 0.15); border: 1px solid rgba(0, 255, 65, 0.3); }
+        .node.q1 { background: var(--q1-amber); box-shadow: 0 0 8px var(--q1-amber); }
+        .node.q2 { background: var(--q2-red); box-shadow: 0 0 12px var(--q2-red); }
+        .node.q3 { background: var(--q3-purple); box-shadow: 0 0 12px var(--q3-purple); }
+        .node.els-active {
+            background: var(--els-cyan); color: #000;
+            box-shadow: 0 0 15px var(--els-cyan), 0 0 30px var(--els-cyan); transform: scale(1.5); z-index: 5;
+        }
+
+        /* --- 1D TEXTSTRING RG BUFFER --- */
+        .textstring-panel {
+            background: #080808; border: 1px solid var(--q0-green);
+            display: flex; flex-direction: column;
+        }
+        .textstring-header { background: var(--q0-green); color: #000; padding: 4px 10px; font-weight: bold; font-size: 0.75rem; text-transform: uppercase; }
+        #textstring-buffer {
+            padding: 10px; font-size: 0.85rem; line-height: 1.4; letter-spacing: 2px;
+            word-break: break-all; color: #444; height: 110px; overflow-y: auto;
+        }
+        .ts-char { transition: color 0.2s, text-shadow 0.2s; font-weight: bold; }
+        .ts-q0 { color: rgba(0, 255, 65, 0.4); }
+        .ts-q1 { color: var(--q1-amber); }
+        .ts-q2 { color: var(--q2-red); text-shadow: 0 0 5px var(--q2-red); }
+        .ts-q3 { color: var(--q3-purple); }
+        .ts-els { color: #fff; background: var(--els-cyan); padding: 0 2px; border-radius: 2px; text-shadow: 0 0 5px #000; }
+
+        /* --- SIDEBAR --- */
+        .sidebar { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+        .panel { border: 1px solid var(--q0-green); background: #0a0a0a; display: flex; flex-direction: column; min-height: 0;}
+        .panel-header { background: var(--q0-green); color: #000; padding: 5px 10px; font-weight: bold; font-size: 0.75rem; text-transform: uppercase; }
+        
+        .crypto-header { background: var(--q3-purple); color: #fff; border-color: var(--q3-purple); }
+        #crypto-log { flex: 3; overflow-y: auto; padding: 10px; font-size: 0.7rem; color: #fff; }
+        .log-entry { margin-bottom: 8px; border-bottom: 1px dashed #222; padding-bottom: 4px; }
+        .hex-dump { color: #888; word-break: break-all; display: block; margin-top: 2px; font-size: 0.65rem; }
+        
+        .els-header { background: var(--els-cyan); color: #000; }
+        #els-log { flex: 2; overflow-y: auto; padding: 10px; font-size: 0.75rem; color: var(--els-cyan); background: #0a0a0a;}
+        .els-hit { background: rgba(0, 229, 255, 0.1); border-left: 3px solid var(--els-cyan); padding: 5px; margin-bottom: 5px; }
+    </style>
+</head>
+<body>
+
+<header>
+    <div>VORTEX PHASE MONITOR v10.0 // 1D/2D ELS DECODER</div>
+    <div><span class="crypto-badge" id="crypto-status">AWAITING KEY...</span> &nbsp;&nbsp; ALPHABET: Q-ARY (4)</div>
+</header>
+
+<main>
+    <div class="spatial-column">
+        <div class="grid-container">
+            <div class="go-board" id="matrix"></div>
+        </div>
+        
+        <div class="textstring-panel">
+            <div class="textstring-header">1D Textstring Buffer (RG Map)</div>
+            <div id="textstring-buffer">
+                </div>
+        </div>
+    </div>
+
+    <div class="sidebar">
+        <div class="panel" style="flex: 3; border-color: var(--q3-purple);">
+            <div class="panel-header crypto-header">Encrypted Payload Stream (AES-GCM / CBOR)</div>
+            <div id="crypto-log">
+                <div class="log-entry" style="color: var(--q1-amber);">[SYS] Booting W3C Cryptographic engine...</div>
+            </div>
+        </div>
+
+        <div class="panel" style="flex: 2; border-color: var(--els-cyan);">
+            <div class="panel-header els-header">Spatial Extraction (Q-States & ELS)</div>
+            <div id="els-log">
+                <div style="color: #888; font-style: italic;">Monitoring grid for quaternary anomalies...</div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script>
+    const matrix = document.getElementById('matrix');
+    const textBuffer = document.getElementById('textstring-buffer');
+    const cryptoLog = document.getElementById('crypto-log');
+    const elsLog = document.getElementById('els-log');
+    
+    // Array om de 361 objecten op te slaan (Node div + Karakter + Status)
+    const gridData = [];
+    const dictionary = ["VORTEX", "STASIS", "QUATRON", "LYNDON", "MATRIX", "Q-ARY", "ENCRYPT"];
+    const allowedSkips = [1, 19, 20, 18];
+
+    // --- 1. W3C HARDENED CRYPTO MODULE ---
+    const VortexCrypto = {
+        key: null,
+        async generateW3CKey() {
+            this.key = await window.crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+        },
+        async encryptData(cborBuffer) {
+            const iv = window.crypto.getRandomValues(new Uint8Array(12));
+            const encryptedBuffer = await window.crypto.subtle.encrypt({ name: "AES-GCM", iv: iv, tagLength: 128 }, this.key, cborBuffer);
+            const payload = new Uint8Array(iv.length + encryptedBuffer.byteLength);
+            payload.set(iv, 0); payload.set(new Uint8Array(encryptedBuffer), iv.length);
+            return payload.buffer; 
+        },
+        async decryptData(encryptedPayloadBuffer) {
+            const payload = new Uint8Array(encryptedPayloadBuffer);
+            return await window.crypto.subtle.decrypt({ name: "AES-GCM", iv: payload.slice(0, 12), tagLength: 128 }, this.key, payload.slice(12));
+        }
+    };
+
+    // --- 2. INITIALISEER 19x19 GRID & TEXTSTRING ---
+    function initGrid() {
+        let initialStringHTML = '';
+        for (let i = 0; i < 361; i++) {
+            const char = String.fromCharCode(65 + Math.floor(Math.random() * 26));
+            
+            // Bouw de Go-board Node
+            const container = document.createElement('div');
+            container.className = 'intersection';
+            const node = document.createElement('div');
+            node.className = 'node q0'; 
+            node.innerText = char;
+            container.appendChild(node);
+            matrix.appendChild(container);
+            
+            // Sla op in de master data array
+            gridData.push({
+                element: node,
+                char: char,
+                state: 'q0' // Standaard stasis
+            });
+
+            // Bouw de initiële Textstring (1D)
+            initialStringHTML += `<span class="ts-char ts-q0" id="ts-${i}">${char}</span>`;
+        }
+        textBuffer.innerHTML = initialStringHTML;
+    }
+
+    // --- 3. SYSTEEM BOOT ---
+    async function initSystem() {
+        initGrid();
+        try {
+            await VortexCrypto.generateW3CKey();
+            document.getElementById('crypto-status').innerText = "AES-GCM 256 SECURED";
+            setInterval(simulateQuaternaryStream, 1500);
+        } catch (e) { console.error("Crypto failure", e); }
+    }
+
+    // --- 4. DATA GENERATIE -> ENCRYPTIE -> DECRYPTIE ---
+    async function simulateQuaternaryStream() {
+        const isElsHit = Math.random() > 0.80; 
+        let payload = { 1: Date.now(), 2: (Math.random() * 0.3 + 0.6).toFixed(3), 3: false, 6: [] };
+
+        if (isElsHit) {
+            const word = dictionary[Math.floor(Math.random() * dictionary.length)];
+            const skip = allowedSkips[Math.floor(Math.random() * allowedSkips.length)];
+            payload[3] = true; payload[4] = word; payload[5] = Math.max(0, Math.floor(Math.random() * (361 - (word.length * skip)))); payload[6] = skip;
+        } else {
+            const numAnomalies = Math.floor(Math.random() * 8) + 2;
+            for(let i=0; i<numAnomalies; i++) {
+                payload[6].push([ Math.floor(Math.random()*19), Math.floor(Math.random()*19), Math.floor(Math.random()*3) + 1 ]);
+            }
+        }
+
+        const cborBuffer = CBOR.encode(payload);
+        const encryptedPayload = await VortexCrypto.encryptData(cborBuffer);
+        const hexDump = buf2hex(encryptedPayload);
+
+        try {
+            const decryptedBuffer = await VortexCrypto.decryptData(encryptedPayload);
+            processQuaternaryData(CBOR.decode(decryptedBuffer), hexDump);
+        } catch (e) { console.error("Integrity error!", e); }
+    }
+
+    // --- 5. VISUALISATIE (2D GRID + 1D TEXTSTRING) ---
+    function processQuaternaryData(data, encryptedHex) {
+        // Crypto Log
+        const entry = document.createElement('div');
+        entry.className = 'log-entry';
+        entry.innerHTML = `<span style="color: var(--q3-purple); font-weight:bold;">[SECURE_RX]</span> Payload verwerkt. <br><span class="hex-dump">CIPHER: ${encryptedHex}</span>`;
+        cryptoLog.prepend(entry);
+        if (cryptoLog.childNodes.length > 20) cryptoLog.lastChild.remove();
+
+        // 1. Reset Master Data Array naar Q0
+        gridData.forEach((item, index) => {
+            if(item.state !== 'q0') {
+                item.state = 'q0';
+                item.char = String.fromCharCode(65 + Math.floor(Math.random() * 26)); // Randomize on reset
+                item.element.className = 'node q0';
+                item.element.innerText = item.char;
+                
+                // Reset de 1D Textstring
+                const tsChar = document.getElementById(`ts-${index}`);
+                tsChar.className = 'ts-char ts-q0';
+                tsChar.innerText = item.char;
+            }
+        });
+
+        if (data[3] === true) {
+            // ELS VERWERKING
+            const word = data[4]; const start = data[5]; const skip = data[6];
+            
+            const elsEntry = document.createElement('div');
+            elsEntry.className = 'els-hit';
+            elsEntry.innerHTML = `> ELS DECODED: <strong>${word}</strong> [Idx ${start}, Skip ${skip}]`;
+            elsLog.prepend(elsEntry);
+            if (elsLog.childNodes.length > 10) elsLog.lastChild.remove();
+
+            for (let i = 0; i < word.length; i++) {
+                const targetIdx = start + (i * skip);
+                if (targetIdx < 361) {
+                    gridData[targetIdx].state = 'els';
+                    gridData[targetIdx].element.className = 'node els-active';
+                    gridData[targetIdx].element.innerText = word[i];
+                    
+                    // Update 1D Textstring (Cyaan ELS hit)
+                    const tsChar = document.getElementById(`ts-${targetIdx}`);
+                    tsChar.className = 'ts-char ts-els';
+                    tsChar.innerText = word[i];
+                }
+            }
+        } else {
+            // QUATERNAIRE ANOMALIE VERWERKING (Rood/Groen/Amber/Paars)
+            data[6].forEach(anomaly => {
+                const idx = (anomaly[1] * 19) + anomaly[0];
+                const qState = anomaly[2]; // 1=Amber, 2=Rood, 3=Paars
+                if(idx < 361) {
+                    gridData[idx].state = `q${qState}`;
+                    gridData[idx].element.className = `node q${qState}`;
+                    
+                    // Update 1D Textstring (RG Mockup)
+                    const tsChar = document.getElementById(`ts-${idx}`);
+                    tsChar.className = `ts-char ts-q${qState}`;
+                }
+            });
+        }
+    }
+
+    function buf2hex(buffer) { return Array.prototype.map.call(new Uint8Array(buffer), x => ('00' + x.toString(16)).slice(-2).toUpperCase()).join(''); }
+
+    initSystem();
+</script>
+
+</body>
+</html>

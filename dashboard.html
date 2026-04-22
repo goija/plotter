@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <title>WebRTC Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: monospace; background: #111; color: #0f0; padding: 20px; text-align: center; }
+        .box { max-width: 800px; margin: auto; border: 1px solid #333; padding: 20px; background: #000; border-radius: 8px; }
+        .status { padding: 15px; margin-bottom: 20px; font-weight: bold; border: 1px solid #444; background: #300; color: #f00; }
+        .online { background: #030; color: #0f0; border-color: #0f0; }
+        textarea { width: 100%; height: 120px; background: #222; color: #fff; border: 1px solid #555; padding: 10px; margin-bottom: 10px; box-sizing: border-box; font-size: 11px; }
+        button { background: #0f0; border: none; padding: 15px; font-weight: bold; width: 100%; cursor: pointer; color: #000; margin-bottom: 20px; border-radius: 4px; }
+        h1 { font-size: 48px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+
+<div class="box">
+    <div id="status" class="status">STATUS: WACHTEN OP OFFER UIT TERMINAL</div>
+    
+    <div style="text-align: left;"><strong>1. PLAK DE OFFER HIER (vanaf v=0):</strong></div>
+    <textarea id="offerInput" placeholder="Plak hier de tekst uit de terminal..."></textarea>
+    <button onclick="processOffer()">VERWERK OFFER & MAAK ANTWOORD</button>
+    
+    <div style="text-align: left;"><strong>2. KOPIEER DIT ANTWOORD TERUG NAAR TERMINAL:</strong></div>
+    <textarea id="answerOutput" readonly placeholder="Het antwoord verschijnt hier..."></textarea>
+
+    <h1 id="liveVal">0</h1>
+    <canvas id="chart"></canvas>
+</div>
+
+<script>
+    let pc = new RTCPeerConnection({ iceServers: [] });
+    let dc;
+
+    const ctx = document.getElementById('chart').getContext('2d');
+    const chart = new Chart(ctx, {
+        type: 'line',
+        data: { labels: Array(50).fill(''), datasets: [{ label: 'Live Data', data: [], borderColor: '#0f0', tension: 0.1, pointRadius: 0 }] },
+        options: { animation: false, scales: { y: { beginAtZero: true, grid: { color: '#333' } }, x: { grid: { display: false } } } }
+    });
+
+    setInterval(() => chart.update('none'), 100);
+
+    pc.ondatachannel = (event) => {
+        dc = event.channel;
+        dc.binaryType = "arraybuffer";
+        dc.onopen = () => {
+            document.getElementById('status').innerText = "STATUS: ONLINE (VERBONDEN)";
+            document.getElementById('status').className = "status online";
+        };
+        dc.onmessage = async (e) => {
+            const val = new DataView(e.data).getUint32(0, true);
+            document.getElementById('liveVal').innerText = val;
+            chart.data.datasets[0].data.push(val);
+            if (chart.data.datasets[0].data.length > 50) chart.data.datasets[0].data.shift();
+        };
+    };
+
+    async function processOffer() {
+        const sdp = document.getElementById('offerInput').value;
+        try {
+            await pc.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: sdp }));
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+
+            pc.onicecandidate = (e) => {
+                if (!e.candidate) {
+                    document.getElementById('answerOutput').value = pc.localDescription.sdp;
+                    document.getElementById('status').innerText = "STAP 2: Kopieer het antwoord naar de terminal!";
+                }
+            };
+        } catch (e) {
+            alert("Fout: " + e.message);
+        }
+    }
+</script>
+</body>
+</html>

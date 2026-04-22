@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VORTEX // Sferische Transformatie (Mobiel)</title>
+    <style>
+        :root {
+            --neon-green: #00ff41;
+            --alert-red: #ff003c;
+            --bg-color: #050505;
+            --grid-color: rgba(0, 255, 65, 0.1);
+        }
+        
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--neon-green);
+            font-family: 'Courier New', Courier, monospace;
+            margin: 0;
+            padding: 10px; /* Iets minder padding voor mobiel */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transition: color 0.5s, background-color 0.5s;
+            overflow-x: hidden;
+        }
+
+        /* CRT Effect */
+        body::after {
+            content: " ";
+            display: block;
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
+                        linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            z-index: 2;
+            background-size: 100% 2px, 3px 100%;
+            pointer-events: none;
+        }
+
+        .container {
+            width: 100%; /* Responsief gemaakt */
+            max-width: 950px; 
+            border: 2px solid var(--neon-green);
+            padding: 15px;
+            position: relative;
+            z-index: 3;
+            box-shadow: 0 0 10px rgba(0, 255, 65, 0.2);
+            transition: border-color 0.5s, box-shadow 0.5s;
+            margin-bottom: 20px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--neon-green);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            font-weight: bold;
+            transition: border-color 0.5s;
+            font-size: 0.9em;
+        }
+
+        .dashboard {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .panel {
+            border: 1px dashed var(--neon-green);
+            padding: 15px;
+            flex: 1;
+            transition: border-color 0.5s;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        /* Extra touch-area voor de slider op mobiel */
+        input[type=range] {
+            width: 100%;
+            height: 25px; 
+            accent-color: var(--neon-green);
+            cursor: ew-resize;
+            transition: accent-color 0.5s;
+        }
+
+        .data-value {
+            font-size: 1.2em;
+            font-weight: bold;
+            display: inline-block;
+            margin-top: 5px;
+            letter-spacing: 2px;
+        }
+
+        .status-box {
+            text-align: center;
+            font-size: 1.1em;
+            font-weight: bold;
+            padding: 10px;
+            border: 2px solid var(--neon-green);
+            margin-bottom: 20px;
+            transition: all 0.5s ease;
+            word-wrap: break-word;
+        }
+
+        .blue-mode {
+            color: #0088ff !important;
+            border-color: #0088ff !important;
+            text-shadow: 0 0 10px #0088ff;
+            box-shadow: 0 0 15px rgba(0, 136, 255, 0.4);
+            animation: pulse-blue 1s infinite alternate;
+        }
+
+        @keyframes pulse-blue {
+            0% { opacity: 1; }
+            100% { opacity: 0.8; }
+        }
+
+        .canvas-container {
+            width: 100%;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        canvas {
+            background-color: #001100;
+            border: 1px solid var(--neon-green);
+            width: 100%;
+            height: 200px;
+            background-image: 
+                linear-gradient(var(--grid-color) 1px, transparent 1px),
+                linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+            background-size: 20px 20px;
+            transition: border-color 0.5s;
+            display: block;
+        }
+        
+        .code-block {
+            background: rgba(0,0,0,0.5);
+            padding: 10px;
+            border: 1px solid var(--neon-green);
+            font-size: 0.85em;
+            margin-top: auto;
+            transition: border-color 0.5s;
+            word-wrap: break-word;
+        }
+
+        .terminal-container {
+            border: 1px solid var(--neon-green);
+            background: rgba(0, 15, 0, 0.8);
+            height: 150px;
+            overflow-y: auto;
+            padding: 10px;
+            font-size: 0.85em;
+            transition: border-color 0.5s;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .terminal-container::-webkit-scrollbar {
+            width: 8px;
+        }
+        .terminal-container::-webkit-scrollbar-track {
+            background: #001100;
+            border-left: 1px solid var(--neon-green);
+        }
+        .terminal-container::-webkit-scrollbar-thumb {
+            background: var(--neon-green);
+        }
+
+        .log-entry {
+            opacity: 0.8;
+            transition: opacity 0.3s;
+        }
+        .log-entry:last-child {
+            opacity: 1;
+            font-weight: bold;
+        }
+        .log-match {
+            color: #0088ff;
+            text-shadow: 0 0 5px #0088ff;
+        }
+
+        /* MEDIA QUERIES VOOR MOBIEL */
+        @media (max-width: 768px) {
+            .header {
+                flex-direction: column;
+                align-items: center;
+                gap: 10px;
+                text-align: center;
+            }
+            .dashboard {
+                flex-direction: column; /* Zet panelen onder elkaar */
+            }
+            canvas {
+                height: 160px; /* Iets lagere oscilloscoop op kleine schermen */
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <span>VORTEX // CRYPTO CASCADE</span>
+            <span>NODE: LAREN</span>
+        </div>
+        
+        <div class="status-box" id="statusBox">
+            [ MODE: STANDBY // AWAITING BLUE STATE ]
+        </div>
+        
+        <div class="dashboard">
+            <div class="panel">
+                <h3>// OMGEVINGSINPUT</h3>
+                <div class="control-group">
+                    <label>S-VECTOR OVERRIDE</label>
+                    <input type="range" id="sSlider" min="0" max="255" step="1" value="170">
+                    <span class="data-value" id="sSliderDisplay" style="font-size: 1em;">170</span>
+                </div>
+                <div class="code-block">
+                    p = s ⊕ e<br>
+                    q = s[:m] + e[m:]<br>
+                    blue iff q[:m][1:] == q[m:][:-1]
+                </div>
+            </div>
+            
+            <div class="panel">
+                <h3>// BITSTREAM TELEMETRIE</h3>
+                <div>S: <span class="data-value" id="sBits">00000000</span></div>
+                <div>E: <span class="data-value" id="eBits">00000000</span></div>
+                <div>P: <span class="data-value" id="pBits">00000000</span></div>
+            </div>
+
+            <div class="panel">
+                <h3>// Q-VECTOR ANALYSE</h3>
+                <div>Q: <span class="data-value" id="qBits">00000000</span></div>
+                <div>L: <code>q[:m][1:]</code> = <span class="data-value" id="lSlice">000</span></div>
+                <div>R: <code>q[m:][:-1]</code> = <span class="data-value" id="rSlice">000</span></div>
+                <div id="condResult" style="margin-top: 10px; font-weight: bold; color: var(--alert-red);">[ MATCH: FALSE ]</div>
+            </div>
+        </div>
+        
+        <div class="canvas-container" id="canvasContainer">
+            <h3>// OSCILLOSCOOP WERKVELD</h3>
+            <canvas id="oscilloscope" height="200"></canvas>
+        </div>
+
+        <div>
+            <h3>// CASCADE LOG STREAM</h3>
+            <div class="terminal-container" id="terminalLog">
+                <div class="log-entry">> Systeem geïnitialiseerd...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('oscilloscope');
+        const ctx = canvas.getContext('2d');
+        const canvasContainer = document.getElementById('canvasContainer');
+        const sSlider = document.getElementById('sSlider');
+        const sSliderDisplay = document.getElementById('sSliderDisplay');
+        const terminalLog = document.getElementById('terminalLog');
+        const root = document.documentElement;
+        
+        let time = 0;
+        let isBlue = false;
+        let e_int = Math.floor(Math.random() * 256);
+
+        // Dynamische Canvas Resize voor Mobiel
+        function resizeCanvas() {
+            canvas.width = canvasContainer.clientWidth - 2; // -2 voor de border
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas(); // Initiële berekening
+
+        function addLogEntry(S, E, P, q_str, isMatch) {
+            const entry = document.createElement('div');
+            const now = new Date();
+            const timeStr = now.toTimeString().split(' ')[0];
+            
+            let status = isMatch ? "[MATCH]" : "[STBY]";
+            entry.innerText = `[${timeStr}] S:${S.toString().padStart(3,'0')} E:${E.toString().padStart(3,'0')} | Q:${q_str} ${status}`;
+            
+            entry.className = isMatch ? "log-entry log-match" : "log-entry";
+            terminalLog.appendChild(entry);
+            
+            if (terminalLog.children.length > 50) { // Max 50 regels voor mobiele prestaties
+                terminalLog.removeChild(terminalLog.firstChild);
+            }
+            terminalLog.scrollTop = terminalLog.scrollHeight;
+        }
+
+        function updateLogic(triggeredBySlider = false) {
+            const n = 8;
+            const m = n / 2;
+
+            let S = parseInt(sSlider.value);
+            let E = e_int;
+            let P = S ^ E;
+
+            let s_str = S.toString(2).padStart(n, '0');
+            let e_str = E.toString(2).padStart(n, '0');
+            let p_str = P.toString(2).padStart(n, '0');
+
+            let q_str = s_str.substring(0, m) + e_str.substring(m, n);
+            let q_left = q_str.substring(0, m);
+            let q_right = q_str.substring(m, n);
+            let left_slice = q_left.substring(1);
+            let right_slice = q_right.substring(0, m - 1); 
+
+            isBlue = (left_slice === right_slice);
+
+            sSliderDisplay.innerText = S;
+            document.getElementById('sBits').innerText = s_str;
+            document.getElementById('eBits').innerText = e_str;
+            document.getElementById('pBits').innerText = p_str;
+            document.getElementById('qBits').innerText = q_str;
+            document.getElementById('lSlice').innerText = left_slice;
+            document.getElementById('rSlice').innerText = right_slice;
+
+            const statusBox = document.getElementById('statusBox');
+            const condResult = document.getElementById('condResult');
+
+            if (isBlue) {
+                root.style.setProperty('--neon-green', '#0088ff');
+                root.style.setProperty('--alert-red', '#0055aa');
+                root.style.setProperty('--grid-color', 'rgba(0, 136, 255, 0.15)');
+                
+                statusBox.innerText = "[ MODE: BLUE VORTEX ACTIVE ]";
+                statusBox.className = "status-box blue-mode";
+                
+                condResult.innerText = "[ MATCH: TRUE ]";
+                condResult.style.color = "#0088ff";
+            } else {
+                root.style.setProperty('--neon-green', '#00ff41');
+                root.style.setProperty('--alert-red', '#ff003c');
+                root.style.setProperty('--grid-color', 'rgba(0, 255, 65, 0.1)');
+                
+                statusBox.innerText = "[ MODE: STANDBY // AWAITING BLUE STATE ]";
+                statusBox.className = "status-box";
+                
+                condResult.innerText = "[ MATCH: FALSE ]";
+                condResult.style.color = "var(--alert-red)";
+            }
+
+            if (!triggeredBySlider) {
+                addLogEntry(S, E, P, q_str, isBlue);
+            }
+        }
+
+        setInterval(() => {
+            e_int = Math.floor(Math.random() * 256);
+            updateLogic(false);
+        }, 1500);
+
+        sSlider.addEventListener('input', () => updateLogic(true));
+        sSlider.addEventListener('change', () => {
+            const n = 8, m = 4;
+            let S = parseInt(sSlider.value);
+            let s_str = S.toString(2).padStart(n, '0');
+            let e_str = e_int.toString(2).padStart(n, '0');
+            let q_str = s_str.substring(0, m) + e_str.substring(m, n);
+            addLogEntry(S, e_int, S ^ e_int, q_str, isBlue);
+        });
+
+        // Responsieve dynamische as-berekening
+        function drawWave(yOffset, frequency, amplitude, color, jitterLevel, isPulse) {
+            ctx.beginPath();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            
+            for (let x = 0; x < canvas.width; x++) {
+                let jitter = (Math.random() - 0.5) * jitterLevel;
+                let wave;
+                
+                if (isPulse) {
+                    wave = Math.sin((x + time) * frequency) + Math.sin((x + time) * frequency * 2.5);
+                    wave = wave > 0 ? amplitude : -amplitude;
+                } else {
+                    wave = Math.sin((x + time) * frequency) > 0 ? amplitude : -amplitude;
+                }
+                
+                ctx.lineTo(x, yOffset + wave + jitter);
+            }
+            ctx.stroke();
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            let baseFreq = isBlue ? 0.08 : 0.02;
+            let jitter = isBlue ? 8 : 1;
+            let timeStep = isBlue ? 5 : 2;
+            
+            let computedColor = getComputedStyle(root).getPropertyValue('--neon-green').trim();
+
+            // Pas Y-offsets aan op basis van de hoogte van de (mogelijke mobiele) canvas
+            let canvasH = canvas.height;
+            let gap = canvasH / 4;
+
+            drawWave(gap * 1, baseFreq, gap * 0.4, computedColor, jitter, false);         // S
+            drawWave(gap * 2, baseFreq * 1.2, gap * 0.4, computedColor, jitter, false);   // E
+            drawWave(gap * 3, 0.03, gap * 0.4, computedColor, jitter, true);              // P
+
+            time += timeStep;
+            requestAnimationFrame(draw);
+        }
+        
+        // Init
+        updateLogic(false);
+        draw();
+    </script>
+</body>
+</html>

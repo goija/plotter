@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VORTEX // OMNI_CELESTIAL_v47.0</title>
+    <style>
+        :root {
+            --bg: #000400; --panel: #000f00; --accent: #00ff41; 
+            --solar: #ffcc00; --utc: #ffffff; --moon: #cbd5e0; 
+            --vega: #ffffff; --orion: #00d4ff;
+            --border: #002200; --night: #0a0a2a; --gray: #ff00ff;
+        }
+
+        body {
+            margin: 0; background: var(--bg); color: var(--accent);
+            font-family: 'JetBrains Mono', monospace;
+            display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+        }
+
+        header {
+            padding: 10px 15px; background: var(--panel); border-bottom: 2px solid var(--accent);
+            display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem;
+            box-shadow: 0 0 15px rgba(0, 255, 65, 0.1); z-index: 100;
+        }
+
+        .scroll-area { flex: 1; overflow-y: auto; background: #000; padding: 10px; }
+        
+        .scroll-area::-webkit-scrollbar { width: 8px; }
+        .scroll-area::-webkit-scrollbar-track { background: #000; }
+        .scroll-area::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 4px; }
+
+        .matrix-wrapper {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 12px;
+        }
+
+        .node-cell {
+            background: rgba(0, 10, 0, 0.98); border: 1px solid var(--border);
+            padding: 16px; position: relative; min-height: 290px;
+            display: flex; flex-direction: column; justify-content: space-between;
+            transition: border-color 0.2s, transform 0.2s;
+        }
+
+        .node-cell:hover { border-color: var(--accent); transform: translateY(-2px); z-index: 10; }
+
+        .is-night { background: var(--night); border-color: #1a1a4a; }
+        .is-master { border-color: var(--solar); border-width: 2px; box-shadow: 0 0 15px rgba(255, 204, 0, 0.15); }
+        .is-overlap { border-color: var(--gray); border-style: dashed; }
+
+        /* Indicator Dots */
+        .indicator-group { position: absolute; top: 12px; right: 12px; display: flex; gap: 6px; }
+        .dot { width: 6px; height: 6px; border-radius: 50%; transition: 0.2s; }
+        .sun-dot { background: var(--solar); }
+        .moon-dot { background: var(--moon); }
+        .vega-dot { background: var(--vega); }
+        .orion-dot { background: var(--orion); }
+        .plus { box-shadow: 0 0 8px currentColor; opacity: 1; }
+        .min { opacity: 0.15; }
+
+        /* Cardinal Bar */
+        .cardinal-bar {
+            display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px;
+            font-size: 0.5rem; text-align: center; margin-bottom: 10px;
+        }
+        .cardinal-point { background: rgba(0,255,65,0.05); padding: 3px; border: 1px solid rgba(0,255,65,0.1); }
+
+        /* Dual Clock */
+        .dual-clock-container {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+            border-bottom: 1px solid rgba(0,255,65,0.2); padding-bottom: 10px; margin-bottom: 10px;
+        }
+        .clock-sub { display: flex; flex-direction: column; }
+        .clock-label { font-size: 0.55rem; text-transform: uppercase; opacity: 0.7; margin-bottom: 2px; }
+        .utc-val { font-size: 1.2rem; color: var(--utc); font-weight: bold; letter-spacing: 1px; font-variant-numeric: tabular-nums; }
+        .solar-val { font-size: 1.2rem; color: var(--solar); font-weight: bold; letter-spacing: 1px; font-variant-numeric: tabular-nums; }
+
+        /* Celestial Grid */
+        .celestial-grid { 
+            display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 5px 0 10px 0;
+            font-size: 0.55rem; padding: 10px; background: rgba(255,255,255,0.03); border-radius: 4px;
+        }
+
+        /* Logic Pattern */
+        .logic-pattern { font-size: 0.45rem; font-family: 'Courier New', monospace; background: rgba(0,255,65,0.05); padding: 8px; border-radius: 4px; }
+        .dec { color: #fff; margin-bottom: 4px; font-weight: bold; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px;}
+        .bin { color: var(--orion); opacity: 0.9; margin-bottom: 2px; letter-spacing: 1px; }
+        .gry { color: var(--gray); opacity: 0.9; letter-spacing: 1px; }
+
+        .footer { padding: 10px 15px; background: var(--panel); border-top: 1px solid var(--border); font-size: 0.65rem; display: flex; justify-content: space-between; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div style="font-weight: bold; font-size: 0.9rem;">VORTEX_OMNI_CELESTIAL_v47.0 // 92-NODE CYCLE</div>
+        <div id="master-gmt" style="color:var(--utc);">UTC REF: 00:00:00.000</div>
+    </header>
+
+    <div class="scroll-area">
+        <div class="matrix-wrapper" id="grid"></div>
+    </div>
+
+    <div class="footer">
+        <div style="color:var(--solar)">☀ ZON</div>
+        <div style="color:var(--moon)">☾ MAAN</div>
+        <div style="color:var(--vega)">🌟 VEGA</div>
+        <div style="color:var(--orion)">⚔ ORION (ALNILAM)</div>
+        <div style="color:var(--accent); font-weight: bold; text-transform: uppercase;">OP: RIANNE GOIJARTS</div>
+    </div>
+
+    <script>
+        // --- Core Logic Functions ---
+        function toGray(n) { return n ^ (n >> 1); }
+        function toBinary(n, bits=24) { 
+            return n.toString(2).padStart(bits, '0').match(/.{1,4}/g).join(' '); 
+        }
+
+        // --- Database ---
+        const masterNodes = {
+            26: { name: "PENTAGON", lat: 38.87 },
+            27: { name: "NEW YORK", lat: 40.71 },
+            44: { name: "STONEHENGE", lat: 51.17 },
+            45: { name: "GREENWICH", lat: 51.47 },
+            46: { name: "LAREN (M)", lat: 52.26 },
+            48: { name: "ROME", lat: 41.90 },
+            49: { name: "ZWOLLE", lat: 52.51 },
+            90: { name: "DATUMLIJN_WEST", lat: 52.26 },
+            91: { name: "DATUMLIJN_OOST", lat: 52.26 }
+        };
+
+        const BIT_RANGE = 16777216; // 24-bit
+        const LLA_LAT = 52.26; // Fixed latitude for operator Laren if not specified
+
+        // --- Astronomical Algorithm (Simplified for real-time 60fps UI) ---
+        function calculateAlt(lat, lon, ra, dec, time) {
+            const utcHours = time.getUTCHours() + time.getUTCMinutes()/60 + time.getUTCSeconds()/3600;
+            // Local Sidereal Time
+            const lst = (100.46 + 0.9856 * 1 + lon + 15 * utcHours) % 360;
+            const ha = (lst - (ra * 15) + 360) % 360;
+            const phi = lat * Math.PI/180;
+            const delta = dec * Math.PI/180;
+            const h = ha * Math.PI/180;
+            const sinAlt = Math.sin(phi) * Math.sin(delta) + Math.cos(phi) * Math.cos(delta) * Math.cos(h);
+            return Math.asin(sinAlt) * 180/Math.PI;
+        }
+
+        // --- DOM Initialization ---
+        function init() {
+            const grid = document.getElementById('grid');
+            
+            // Generate 92 nodes (0 to 91)
+            for (let i = 0; i <= 91; i++) {
+                const node = masterNodes[i];
+                let cssClass = '';
+                if (node) cssClass = 'is-master';
+                if (i >= 90) cssClass += ' is-overlap'; // Special styling for the wrap-around nodes
+
+                let rawLon = (i * 4) - 180;
+                let displayLon = rawLon;
+                if (i === 90) displayLon = 180;
+                if (i === 91) displayLon = 184; // Visueel 184, rekentechnisch -176
+
+                const nodeName = node ? node.name : `SLOT_${i.toString().padStart(2, '0')}`;
+                const eStr = displayLon > 0 ? `${displayLon.toFixed(1)}° OOST` : '0°';
+                const wStr = displayLon < 0 ? `${Math.abs(displayLon).toFixed(1)}° WEST` : (displayLon === 180 ? '180°' : '0°');
+                
+                grid.innerHTML += `
+                    <div class="node-cell ${cssClass}" id="node-${i}">
+                        <div style="font-size: 0.5rem; opacity: 0.6; margin-bottom: 5px; display: flex; justify-content: space-between;">
+                            <span>ID: ${i.toString().padStart(2, '0')}</span>
+                            <span>AZIMUTH_LOCK</span>
+                        </div>
+                        
+                        <div class="cardinal-bar">
+                            <div class="cardinal-point">N: ${LLA_LAT}°</div>
+                            <div class="cardinal-point">Z: -${LLA_LAT}°</div>
+                            <div class="cardinal-point">${eStr}</div>
+                            <div class="cardinal-point">${wStr}</div>
+                        </div>
+
+                        <div class="indicator-group">
+                            <div class="dot sun-dot" id="sd-${i}" title="Zon"></div>
+                            <div class="dot moon-dot" id="md-${i}" title="Maan"></div>
+                            <div class="dot vega-dot" id="vd-${i}" title="Vega"></div>
+                            <div class="dot orion-dot" id="od-${i}" title="Orion"></div>
+                        </div>
+
+                        <div class="dual-clock-container">
+                            <div class="clock-sub">
+                                <span class="clock-label">UTC / Constante Tijd</span>
+                                <span class="utc-val" id="utc-${i}">00:00:00</span>
+                            </div>
+                            <div class="clock-sub">
+                                <span class="clock-label">Ware Zonnetijd</span>
+                                <span class="solar-val" id="sol-${i}">00:00:00</span>
+                            </div>
+                        </div>
+                        
+                        <div class="celestial-grid">
+                            <div style="color:var(--solar)">ZON_ELEV: <span id="sa-${i}">0°</span></div>
+                            <div style="color:var(--moon)">MAAN_ELEV: <span id="ma-${i}">0°</span></div>
+                            <div style="color:var(--vega)">VEGA: <span id="va-${i}">0°</span></div>
+                            <div style="color:var(--orion)">ORION: <span id="oa-${i}">0°</span></div>
+                        </div>
+
+                        <div class="logic-pattern">
+                            <div class="dec" id="dec-${i}">D:0 | ${nodeName}</div>
+                            <div class="bin" id="bin-${i}">B:0000</div>
+                            <div class="gry" id="gry-${i}">G:0000</div>
+                        </div>
+                    </div>
+                `;
+            }
+            // Start the Render Loop
+            requestAnimationFrame(update);
+        }
+
+        // --- Render Loop (60FPS Target) ---
+        function update() {
+            const now = new Date();
+            const timeMs = now.getTime();
+            
+            // UTC Referentie
+            const gmt = new Date(timeMs + (now.getTimezoneOffset() * 60000));
+            const msStr = now.getUTCMilliseconds().toString().padStart(3, '0');
+            const utcTimeStr = gmt.toLocaleTimeString('en-GB');
+            
+            document.getElementById('master-gmt').innerText = "UTC REF: " + utcTimeStr + "." + msStr;
+
+            for (let i = 0; i <= 91; i++) {
+                let calcLon = (i * 4) - 180;
+                // Normalize longitude for astronomical calculations
+                if (calcLon > 180) calcLon = calcLon - 360; 
+                
+                const nodeLat = masterNodes[i] ? masterNodes[i].lat : LLA_LAT;
+                
+                // Zonnetijd berekening
+                const solar = new Date(gmt.getTime() + (calcLon * 4 * 60000));
+                
+                const h = solar.getUTCHours();
+                const m = solar.getUTCMinutes();
+                const s = solar.getUTCSeconds();
+                const sms = solar.getUTCMilliseconds();
+                
+                // --- DOM Updates Clocks ---
+                document.getElementById(`utc-${i}`).innerText = utcTimeStr + "." + msStr;
+                document.getElementById(`sol-${i}`).innerText = h.toString().padStart(2,'0')+":"+m.toString().padStart(2,'0')+":"+s.toString().padStart(2,'0')+"."+sms.toString().padStart(3,'0');
+
+                // --- DOM Updates 24-Bit Logic ---
+                // Precisie: 8.388.608 = 12:00:00
+                const decVal = Math.floor(((h * 3600 + m * 60 + s + sms/1000) / 86400) * BIT_RANGE);
+                const nodeName = masterNodes[i] ? masterNodes[i].name : `SLOT_${i.toString().padStart(2, '0')}`;
+                
+                document.getElementById(`dec-${i}`).innerText = `D:${decVal.toLocaleString('nl-NL')} | ${nodeName}`;
+                document.getElementById(`bin-${i}`).innerText = `B:${toBinary(decVal)}`;
+                document.getElementById(`gry-${i}`).innerText = `G:${toBinary(toGray(decVal))}`;
+
+                // --- DOM Updates Celestial ---
+                // RA/Dec Waarden bij benadering
+                const sa = calculateAlt(nodeLat, calcLon, 1.8, 11, gmt); // Zon April
+                const ma = calculateAlt(nodeLat, calcLon, 5.0, 20, gmt); // Maan
+                const va = calculateAlt(nodeLat, calcLon, 18.61, 38.78, gmt); // Vega
+                const oa = calculateAlt(nodeLat, calcLon, 5.6, -1.2, gmt); // Orion Alnilam
+
+                document.getElementById(`sa-${i}`).innerText = sa.toFixed(1) + "°";
+                document.getElementById(`ma-${i}`).innerText = ma.toFixed(1) + "°";
+                document.getElementById(`va-${i}`).innerText = va.toFixed(1) + "°";
+                document.getElementById(`oa-${i}`).innerText = oa.toFixed(1) + "°";
+
+                // Update LED dots
+                document.getElementById(`sd-${i}`).className = `dot sun-dot ${sa > 0 ? 'plus' : 'min'}`;
+                document.getElementById(`md-${i}`).className = `dot moon-dot ${ma > 0 ? 'plus' : 'min'}`;
+                document.getElementById(`vd-${i}`).className = `dot vega-dot ${va > 0 ? 'plus' : 'min'}`;
+                document.getElementById(`od-${i}`).className = `dot orion-dot ${oa > 0 ? 'plus' : 'min'}`;
+
+                // Night Mode Trigger (-0.8 graden zon onder horizon)
+                const cell = document.getElementById(`node-${i}`);
+                if (sa < -0.8) cell.classList.add('is-night');
+                else cell.classList.remove('is-night');
+            }
+            
+            requestAnimationFrame(update);
+        }
+
+        // Boot system
+        window.onload = init;
+    </script>
+</body>
+</html>
