@@ -1,0 +1,7 @@
+{
+  "date": "2024-05-20",
+  "fetched_at_utc": "2026-04-23T09:55:55.249480+00:00",
+  "note": "KNMI automated source returned no usable rows for the target date yet",
+  "source": "knmi",
+  "status": "manual_required"
+}
