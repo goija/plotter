@@ -1,0 +1,2 @@
+date,station_id,metric,value,quality_flag
+2024-05-20,ATM_PLACEHOLDER,atmospheric_index,0.4,placeholder
