@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Heluo Qi Explorations - Monthly Luoshu 1 Water year</title>
+    <style>
+        /* Reset voor consistente afmetingen */
+        *, *::before, *::after { 
+            box-sizing: border-box; 
+        }
+        
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            min-height: 100vh;
+            font-family: Arial, sans-serif;
+            background-color: #ffffff;
+            color: #000;
+        }
+
+        .header {
+            text-align: center;
+            color: #8B0000;
+            font-weight: bold;
+            font-size: clamp(1.2rem, 4vw, 1.8rem);
+            padding: 1rem 0 0.5rem 0;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .sub-header {
+            padding-left: 2vmin; 
+            font-weight: bold;
+            font-size: clamp(1rem, 3vw, 1.2rem);
+            margin-bottom: 1rem;
+            text-align: center; 
+        }
+
+        /* Hoofdraster: standaard 3 kolommen voor desktop */
+        .main-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2vmin; /* Kleine tussenruimte tussen de kolommen */
+            padding: 0 2vmin; 
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        .main-cell {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 0; 
+            margin-bottom: 2rem; 
+        }
+
+        /* Sub-grid container: vult de volledige kolom op desktop */
+        .luoshu-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            border: 2px solid #000;
+            width: 100%; 
+            /* max-width is hier verwijderd voor de desktop versie */
+        }
+
+        /* Perfecte vierkanten voor de cellen */
+        .sub-cell {
+            border: 1px solid #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative; 
+            background: #fff;
+            aspect-ratio: 1 / 1; 
+        }
+
+        .main-num {
+            font-weight: bold;
+            font-size: clamp(1.5rem, 4vw, 3rem); 
+        }
+
+        .sub-num {
+            position: absolute;
+            top: 8%;
+            right: 12%;
+            font-weight: normal;
+            font-size: clamp(0.8rem, 2vw, 1.4rem);
+            color: #444; 
+        }
+
+        .label {
+            margin-top: 0.5rem;
+            text-align: center;
+            font-size: clamp(0.8rem, 1.5vw, 1.1rem);
+            line-height: 1.3;
+            width: 100%; 
+        }
+
+        /* --- RESPONSIVE DESIGN --- */
+        
+        /* Voor tablets (schermen smaller dan 900px) */
+        @media (max-width: 900px) {
+            .main-grid {
+                grid-template-columns: repeat(2, 1fr); 
+            }
+        }
+
+        /* Voor mobiele telefoons (schermen smaller dan 600px) */
+        @media (max-width: 600px) {
+            .main-grid {
+                grid-template-columns: 1fr; 
+                gap: 5vmin; 
+            }
+            
+            .luoshu-container {
+                max-width: 450px; /* Beperking is verplaatst naar mobiel, voorkomt té hoge vierkanten */
+                width: 90%; 
+            }
+            
+            .main-num {
+                font-size: 2.5rem; 
+            }
+
+            .sub-num {
+                font-size: 1.2rem;
+            }
+
+            .label {
+                font-size: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">Heluo Qi Explorations Netherlands</div>
+<div class="sub-header">Monthly Luoshu 1 Water year</div>
+
+<div class="main-grid" id="grid-container"></div>
+
+<script>
+    const mainPattern = [9, 5, 7, 8, 1, 3, 4, 6, 2];
+
+    const monthsData = [
+        { month: "February", axis: "Month Reversed Axis NE-SW", subs: [7,3,5,6,8,1,2,4,9] },
+        { month: "March", axis: "Month Reversed Axis NW-SE", subs: [6,2,4,5,7,9,1,3,8] },
+        { month: "April", axis: "Month Reversed Axis N-S", subs: [5,1,3,4,6,8,9,2,7] },
+        { month: "May", axis: "No monthly Reversed Axis", subs: [4,9,2,3,5,7,8,1,6] },
+        { month: "June", axis: "Month Reversed Axis N-S", subs: [3,8,1,2,4,6,7,9,5] },
+        { month: "July", axis: "Month Reversed Axis NW-SE", subs: [2,7,9,1,3,5,6,8,4] },
+        { month: "August", axis: "Month Reversed Axis NE-SW", subs: [1,6,8,9,2,4,5,7,3] },
+        { month: "September", axis: "Month Reversed Axis E-W", subs: [9,5,7,8,1,3,4,6,2] },
+        { month: "October", axis: "Month Reversed Axis E-W", subs: [8,4,6,7,9,2,3,5,1] },
+        { month: "November", axis: "Month Reversed Axis NE-SW", subs: [7,3,5,6,8,1,2,4,9] },
+        { month: "December", axis: "Month Reversed Axis NW-SE", subs: [6,2,4,5,7,9,1,3,8] },
+        { month: "January", axis: "Month Reversed Axis N-S", subs: [5,1,3,4,6,8,9,2,7] }
+    ];
+
+    const container = document.getElementById('grid-container');
+    let gridHTML = '';
+
+    monthsData.forEach(data => {
+        let subCellsHTML = '';
+        
+        for (let i = 0; i < 9; i++) {
+            subCellsHTML += `
+                <div class="sub-cell">
+                    <span class="main-num">${mainPattern[i]}</span>
+                    <span class="sub-num">${data.subs[i]}</span>
+                </div>
+            `;
+        }
+        
+        gridHTML += `
+            <div class="main-cell">
+                <div class="luoshu-container">
+                    ${subCellsHTML}
+                </div>
+                <div class="label">
+                    1 Water year - ${data.month}<br>
+                    ${data.axis}
+                </div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = gridHTML;
+</script>
+
+</body>
+</html>
