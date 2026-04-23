@@ -4,7 +4,7 @@
 # compile CXX with /usr/bin/c++
 CXX_DEFINES = -DRTC_ENABLE_MEDIA=1 -DRTC_ENABLE_WEBSOCKET=1
 
-CXX_INCLUDES = -I/home/ontwerp/Downloads/plotter/apps
+CXX_INCLUDES = -I/home/ontwerp/Downloads/plotter/apps -I/home/ontwerp/Downloads/plotter/build/_deps/json-src/include
 
-CXX_FLAGS = 
+CXX_FLAGS = -std=gnu++17
 

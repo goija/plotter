@@ -2,30 +2,150 @@
 <html lang="nl">
 <head>
     <meta charset="UTF-8">
-    <title>Atmos Monitor - Type-Safe Fix</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Atmos Monitor - 12 Row Grid</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/cbor-x@1.5.3/dist/index.min.js"></script>
     <style>
-        body { background: #050505; color: #0f0; font-family: monospace; padding: 20px; }
-        .wrapper { border: 1px solid #0f0; max-width: 900px; margin: 0 auto; padding: 20px; }
-        #status { color: red; font-weight: bold; float: right; }
-        .online { color: #0f0 !important; }
-        #chart-wrap { height: 300px; margin: 20px 0; border: 1px solid #222; }
-        #log { height: 120px; overflow-y: auto; font-size: 11px; color: #666; border-top: 1px solid #222; padding-top: 10px; }
+        body { 
+            margin: 0; 
+            background: #050505; 
+            color: #0f0; 
+            font-family: monospace; 
+            overflow: hidden; 
+        }
+
+        /* =========================================
+           HET RASTER: 3 KOLOMMEN x 12 RIJEN
+           ========================================= */
+        .grid-container {
+            display: grid;
+            /* Breedtes volgens verzoek: 18.6 / 64.8 / 16.6 */
+            grid-template-columns: 18.6vw 64.8vw 16.6vw;
+            /* 12 rijen die samen 100vh vullen (8.33vh per rij) */
+            grid-template-rows: repeat(12, 8.33vh);
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* Basis styling voor de boxen */
+        .box {
+            border: 1px solid #1a1a1a;
+            box-sizing: border-box;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* =========================================
+           POSITIONERING
+           ========================================= */
+        
+        /* Kolom 1 (18.6vw): Info en Logs */
+        .info-box {
+            grid-column: 1;
+            grid-row: 1 / span 3; /* De eerste 3 rijen */
+            background: rgba(0, 20, 0, 0.2);
+        }
+
+        .log-box {
+            grid-column: 1;
+            grid-row: 4 / span 9; /* De overige 9 rijen */
+        }
+
+        /* Kolom 2 (64.8vw): Middelste kolom voor de grafiek */
+        .chart-box {
+            grid-column: 2;
+            grid-row: 1 / span 12; /* Volledige hoogte */
+            border-left: 2px solid #0f0;
+            border-right: 2px solid #0f0;
+        }
+
+        /* Kolom 3 (16.6vw): Diagnostiek rechts */
+        .diag-box {
+            grid-column: 3;
+            grid-row: 1 / span 12;
+        }
+
+        /* =========================================
+           ELEMENT STYLING
+           ========================================= */
+        h2 { 
+            margin-top: 0; 
+            font-size: 1vw; 
+            border-bottom: 1px solid #0f0; 
+            padding-bottom: 5px; 
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        #status { color: red; font-weight: bold; }
+        .online { color: #0f0 !important; text-shadow: 0 0 5px #0f0; }
+
+        .scroll-area {
+            flex-grow: 1;
+            overflow-y: auto;
+            font-size: 0.8vw;
+            color: #aaa;
+            padding-right: 5px;
+        }
+
+        /* Custom Scrollbar */
+        .scroll-area::-webkit-scrollbar { width: 4px; }
+        .scroll-area::-webkit-scrollbar-thumb { background: #0f0; }
+
+        #chart-wrap { 
+            flex-grow: 1; 
+            width: 100%; 
+            position: relative; 
+        }
+
+        /* Mobiele overschrijving */
+        @media (max-width: 768px) {
+            body { overflow-y: auto; }
+            .grid-container { display: flex; flex-direction: column; height: auto; }
+            .box { width: 100vw; height: 30vh; border: none; border-bottom: 1px solid #222; }
+            h2 { font-size: 4vw; }
+            .scroll-area { font-size: 3vw; }
+        }
     </style>
 </head>
 <body>
-    <div class="wrapper">
-        <span id="status">OFFLINE</span>
-        <div>SYSTEM_VERSION: ATMOS_V11_STABLE</div>
-        <div id="chart-wrap"><canvas id="mainChart"></canvas></div>
-        <div id="log">> Systeem gereed...<br></div>
+
+    <div class="grid-container">
+        
+        <div class="box info-box">
+            <h2>ATMOS V11</h2>
+            <p>STATUS: <span id="status">OFFLINE</span></p>
+            <p>GRID: 3x12 DETAILED</p>
+            <p>18.6vw | 64.8vw | 16.6vw</p>
+        </div>
+
+        <div class="box log-box">
+            <h2>SYSTEM LOGS</h2>
+            <div id="log" class="scroll-area">> Initialisatie bitcode tunnel...<br></div>
+        </div>
+
+        <div class="box chart-box">
+            <h2>LIVE TELEMETRIE (C++ STREAM)</h2>
+            <div id="chart-wrap">
+                <canvas id="mainChart"></canvas>
+            </div>
+        </div>
+
+        <div class="box diag-box">
+            <h2>RAW DIAGNOSTICS</h2>
+            <div class="scroll-area" id="diag-log">
+                > Listening on DataChannel...<br>
+            </div>
+        </div>
+
     </div>
 
 <script>
     const logBox = document.getElementById('log');
+    const diagBox = document.getElementById('diag-log');
     const statusBox = document.getElementById('status');
-    const decoder = new CBOR.Decoder();
     let chart, pc, socket;
 
     function addLog(msg) {
@@ -38,18 +158,25 @@
     chart = new Chart(ctx, {
         type: 'line',
         data: { labels: [], datasets: [
-            { label: 'Entropy', borderColor: '#3498db', data: [], tension: 0.1, pointRadius: 0 },
-            { label: 'Anomaly', borderColor: '#e74c3c', data: [], tension: 0.1, pointRadius: 0 }
+            { label: 'Entropy', borderColor: '#3498db', data: [], tension: 0.1, pointRadius: 0, borderWidth: 2 },
+            { label: 'Anomaly', borderColor: '#e74c3c', data: [], tension: 0.1, pointRadius: 0, borderWidth: 2 }
         ]},
-        options: { responsive: true, maintainAspectRatio: false, animation: false }
+        options: { 
+            responsive: true, 
+            maintainAspectRatio: false, 
+            animation: false,
+            scales: {
+                x: { grid: { color: '#111' }, ticks: { color: '#0f0', font: { size: 10 } } },
+                y: { grid: { color: '#111' }, ticks: { color: '#0f0', font: { size: 10 } } }
+            },
+            plugins: { legend: { labels: { color: '#0f0', font: { family: 'monospace' } } } }
+        }
     });
 
     function start() {
         pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
-
         socket = new WebSocket('ws://127.0.0.1:8081');
 
-        // Veilig verzenden functie om de 'type is null' fout te voorkomen
         const safeSend = (obj) => {
             if (obj && obj.type && socket.readyState === WebSocket.OPEN) {
                 socket.send(JSON.stringify(obj));
@@ -59,34 +186,40 @@
         pc.ondatachannel = (event) => {
             const dc = event.channel;
             dc.binaryType = "arraybuffer";
+            
             dc.onopen = () => {
                 statusBox.innerText = "ONLINE";
                 statusBox.className = "online";
-                addLog("✅ TUNNEL STATUS: GEOPEND");
+                addLog("✅ C++ STREAM CONNECTED");
             };
+            
             dc.onmessage = (e) => {
-                const data = decoder.decode(new Uint8Array(e.data));
+                const view = new DataView(e.data);
+                const entropy = view.getFloat32(0, true); 
+                const anomaly = view.getFloat32(4, true); 
+
                 const time = new Date().toLocaleTimeString();
                 chart.data.labels.push(time);
-                chart.data.datasets[0].data.push(data.entropy);
-                chart.data.datasets[1].data.push(data.anomaly);
-                if (chart.data.labels.length > 50) chart.data.labels.shift();
+                chart.data.datasets[0].data.push(entropy);
+                chart.data.datasets[1].data.push(anomaly);
+                if (chart.data.labels.length > 60) chart.data.labels.shift();
                 chart.update('none');
+
+                diagBox.innerHTML += `HEX_STREAM >> E:${entropy.toFixed(2)} A:${anomaly.toFixed(2)}<br>`;
+                diagBox.scrollTop = diagBox.scrollHeight;
+                if(diagBox.innerText.length > 2000) diagBox.innerHTML = "> Buffering...<br>";
             };
         };
 
         socket.onopen = () => {
-            addLog("Signaling verbonden. 'join' sturen...");
+            addLog("Signaling WebSocket open.");
             safeSend({ type: "join" });
         };
 
         socket.onmessage = async (e) => {
             try {
                 const msg = JSON.parse(e.data);
-                if (!msg.type) return;
-
                 if (msg.type === "offer") {
-                    addLog("Offer ontvangen.");
                     await pc.setRemoteDescription(new RTCSessionDescription(msg));
                     const answer = await pc.createAnswer();
                     await pc.setLocalDescription(answer);
@@ -94,17 +227,17 @@
                 } else if (msg.type === "candidate" && msg.candidate) {
                     await pc.addIceCandidate(new RTCIceCandidate(msg.candidate));
                 }
-            } catch (err) { console.error("JSON parse fout", err); }
+            } catch (err) { console.error(err); }
         };
 
         pc.onicecandidate = (e) => {
-            if (e.candidate) {
-                safeSend({ type: "candidate", candidate: e.candidate });
-            }
+            if (e.candidate) safeSend({ type: "candidate", candidate: e.candidate });
         };
 
         socket.onclose = () => {
-            addLog("🔌 Verbinding verbroken. Herstart over 3s...");
+            addLog("🔌 Connection Lost.");
+            statusBox.innerText = "OFFLINE";
+            statusBox.className = "";
             setTimeout(() => location.reload(), 3000);
         };
     }
