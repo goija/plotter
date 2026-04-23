@@ -1,7 +1,0 @@
-{
-  "date": "2024-05-20",
-  "fetched_at_utc": "2026-04-23T10:07:40.322650+00:00",
-  "note": "Replace with real NOAA fetch/parser logic.",
-  "source": "noaa",
-  "status": "placeholder_success"
-}
