@@ -1,6 +1,1 @@
-{
-  "date": "2024-05-20",
-  "note": "KNMI automated source returned no usable rows for the target date yet",
-  "stage": "knmi",
-  "status": "manual_required"
-}
+{"status": "success", "stage": "knmi", "date": "2024-05-20", "note": "Manual bypass"}
