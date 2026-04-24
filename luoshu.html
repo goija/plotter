@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pipeline Monitor | Sheaf Locality</title>
+    <style>
+        :root {
+            --bg-color: #f4f7f6;
+            --panel-bg: #ffffff;
+            --primary-red: #8B0000;
+            --alert-red: #ff4d4d;
+            --success-green: #4CAF50;
+            --text-dark: #333;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-dark);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            border-bottom: 4px solid var(--primary-red);
+            padding-bottom: 15px;
+            margin-bottom: 30px;
+        }
+
+        /* Dashboard Layout */
+        .dashboard {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 20px;
+        }
+
+        .panel {
+            background: var(--panel-bg);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        h2 { margin-top: 0; font-size: 1.1rem; text-transform: uppercase; color: #666; }
+
+        /* Connection Status */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            background: #eee;
+            font-weight: bold;
+        }
+        .dot {
+            width: 12px; height: 12px;
+            border-radius: 50%;
+            background: #bbb;
+        }
+        .connected .dot { background: var(--success-green); box-shadow: 0 0 8px var(--success-green); }
+
+        /* Monitor Grid */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            gap: 10px;
+        }
+
+        .cell {
+            aspect-ratio: 1;
+            background: #fafafa;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .cell-id { font-size: 0.7rem; color: #999; }
+        .cell-val { font-size: 1.2rem; font-weight: bold; font-family: monospace; }
+
+        @media (max-width: 768px) {
+            .dashboard { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>SYSTEM MONITOR</h1>
+        <p>Real-time Sheaf Locality Analysis</p>
+    </header>
+
+    <div class="dashboard">
+        <aside class="sidebar">
+            <div class="panel">
+                <h2>Verbinding</h2>
+                <div id="status-box" class="status-badge">
+                    <div class="dot"></div>
+                    <span id="status-text">Disconnected</span>
+                </div>
+            </div>
+            
+            <div class="panel" style="margin-top: 20px;">
+                <h2>Legenda</h2>
+                <p><small>Kleurverloop gebaseerd op CCW (Counter Clockwise) consistentie score.</small></p>
+            </div>
+        </aside>
+
+        <main class="panel">
+            <h2>Live Data (Module 0-3)</h2>
+            <div id="monitor-grid" class="grid">
+                </div>
+        </main>
+    </div>
+</div>
+
+<script>
+    const gridContainer = document.getElementById('monitor-grid');
+    const statusBox = document.getElementById('status-box');
+    const statusText = document.getElementById('status-text');
+
+    // 1. Genereer 64 cellen (4 modules x 16 cellen)
+    function createGrid() {
+        for (let m = 0; m < 4; m++) {
+            for (let c = 0; c < 16; c++) {
+                const div = document.createElement('div');
+                div.className = 'cell';
+                div.id = `m${m}-c${c}`;
+                div.innerHTML = `
+                    <span class="cell-id">M${m}-C${c}</span>
+                    <span class="cell-val">0</span>
+                `;
+                gridContainer.appendChild(div);
+            }
+        }
+    }
+
+    // 2. Data Verwerken
+    // Verwacht een DataView van 16 bytes:
+    // [0-7: Header, 8-11: Float CCW, 12: M-index, 13: C-index, 14: Value, 15: Status]
+    function updateCell(view) {
+        const ccw      = view.getFloat32(8, true); 
+        const mIdx     = view.getUint8(12);
+        const cIdx     = view.getUint8(13);
+        const value    = view.getUint8(14);
+        const status   = view.getUint8(15);
+
+        const cell = document.getElementById(`m${mIdx}-c${cIdx}`);
+        if (!cell) return;
+
+        cell.querySelector('.cell-val').innerText = value;
+
+        if (status === 1) {
+            cell.style.backgroundColor = 'var(--alert-red)';
+            cell.style.color = 'white';
+        } else {
+            // Bereken kleur op basis van CCW score (0.0 - 1.0)
+            const hue = 180 + (ccw * 60); // Verloop tussen blauw en groen
+            cell.style.backgroundColor = `hsl(${hue}, 70%, 90%)`;
+            cell.style.color = 'var(--text-dark)';
+        }
+    }
+
+    // 3. Simulatie (Voor testdoeleinden)
+    function simulateStream() {
+        statusBox.classList.add('connected');
+        statusText.innerText = "Connected (Sim)";
+
+        setInterval(() => {
+            const buffer = new ArrayBuffer(16);
+            const view = new DataView(buffer);
+            
+            view.setFloat32(8, Math.random(), true); // CCW score
+            view.setUint8(12, Math.floor(Math.random() * 4)); // Random Module
+            view.setUint8(13, Math.floor(Math.random() * 16)); // Random Cel
+            view.setUint8(14, Math.floor(Math.random() * 99)); // Waarde
+            view.setUint8(15, Math.random() > 0.98 ? 1 : 0); // 2% kans op alert
+
+            updateCell(view);
+        }, 30);
+    }
+
+    // Initialisatie
+    createGrid();
+    simulateStream();
+</script>
+
+</body>
+</html>
