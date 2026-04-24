@@ -2,247 +2,275 @@
 <html lang="nl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Atmos Monitor - 12 Row Grid</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <title>RAPosthumus | Sheaf 364-Cycle Monitor</title>
     <style>
-        body { 
-            margin: 0; 
-            background: #050505; 
-            color: #0f0; 
-            font-family: monospace; 
-            overflow: hidden; 
+        :root {
+            --bg: #010409;
+            --panel: #0d1117;
+            --accent: #58a6ff;
+            --chiral-l: #ff7b72;
+            --chiral-r: #7ee787;
+            --text: #c9d1d9;
+            --border: #30363d;
+            --highlight: #d29922;
+            --terminal-text: #3fb950;
         }
 
-        /* =========================================
-           HET RASTER: 3 KOLOMMEN x 12 RIJEN
-           ========================================= */
-        .grid-container {
-            display: grid;
-            /* Breedtes volgens verzoek: 18.6 / 64.8 / 16.6 */
-            grid-template-columns: 18.6vw 64.8vw 16.6vw;
-            /* 12 rijen die samen 100vh vullen (8.33vh per rij) */
-            grid-template-rows: repeat(12, 8.33vh);
-            width: 100vw;
-            height: 100vh;
-        }
-
-        /* Basis styling voor de boxen */
-        .box {
-            border: 1px solid #1a1a1a;
-            box-sizing: border-box;
-            padding: 15px;
+        body {
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
             display: flex;
             flex-direction: column;
-            overflow: hidden;
+            gap: 20px;
         }
 
-        /* =========================================
-           POSITIONERING
-           ========================================= */
-        
-        /* Kolom 1 (18.6vw): Info en Logs */
-        .info-box {
-            grid-column: 1;
-            grid-row: 1 / span 3; /* De eerste 3 rijen */
-            background: rgba(0, 20, 0, 0.2);
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 15px;
         }
 
-        .log-box {
-            grid-column: 1;
-            grid-row: 4 / span 9; /* De overige 9 rijen */
+        .status-block { text-align: right; }
+        .status-dot {
+            height: 8px; width: 8px;
+            background-color: var(--chiral-r);
+            border-radius: 50%;
+            display: inline-block;
+            box-shadow: 0 0 8px var(--chiral-r);
         }
 
-        /* Kolom 2 (64.8vw): Middelste kolom voor de grafiek */
-        .chart-box {
-            grid-column: 2;
-            grid-row: 1 / span 12; /* Volledige hoogte */
-            border-left: 2px solid #0f0;
-            border-right: 2px solid #0f0;
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
         }
 
-        /* Kolom 3 (16.6vw): Diagnostiek rechts */
-        .diag-box {
-            grid-column: 3;
-            grid-row: 1 / span 12;
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 20px;
         }
 
-        /* =========================================
-           ELEMENT STYLING
-           ========================================= */
-        h2 { 
-            margin-top: 0; 
-            font-size: 1vw; 
-            border-bottom: 1px solid #0f0; 
-            padding-bottom: 5px; 
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-        
-        #status { color: red; font-weight: bold; }
-        .online { color: #0f0 !important; text-shadow: 0 0 5px #0f0; }
+        h2 { font-size: 0.8rem; color: var(--accent); text-transform: uppercase; margin-top: 0; letter-spacing: 1px; }
 
-        .scroll-area {
-            flex-grow: 1;
+        /* Chiral Canvas */
+        #flowCanvas {
+            width: 100%;
+            height: 180px;
+            background: #000;
+            border-radius: 4px;
+            border: 1px solid var(--border);
+        }
+
+        /* 90 Zones Bar */
+        .sheaf-container {
+            margin-top: 10px;
+        }
+        .sheaf-bar {
+            display: flex;
+            height: 100px;
+            align-items: flex-end;
+            gap: 1px;
+            background: #000;
+            padding: 5px;
+            border: 1px solid var(--border);
+        }
+        .zone {
+            flex: 1;
+            background: var(--accent);
+            opacity: 0.2;
+            min-height: 2px;
+            transition: all 0.1s ease;
+        }
+        .zone.active {
+            background: var(--highlight) !important;
+            opacity: 1 !important;
+            box-shadow: 0 0 10px var(--highlight);
+        }
+
+        /* Stats */
+        .stat-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            font-size: 0.85rem;
+        }
+        .stat-item {
+            padding: 10px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+        }
+        .stat-label { font-size: 0.7rem; color: #8b949e; display: block; margin-bottom: 4px; }
+        .stat-value { color: var(--highlight); font-weight: bold; font-size: 1.1rem; }
+
+        .terminal {
+            background: #000;
+            color: var(--terminal-text);
+            padding: 15px;
+            font-size: 0.75rem;
+            height: 140px;
             overflow-y: auto;
-            font-size: 0.8vw;
-            color: #aaa;
-            padding-right: 5px;
-        }
-
-        /* Custom Scrollbar */
-        .scroll-area::-webkit-scrollbar { width: 4px; }
-        .scroll-area::-webkit-scrollbar-thumb { background: #0f0; }
-
-        #chart-wrap { 
-            flex-grow: 1; 
-            width: 100%; 
-            position: relative; 
-        }
-
-        /* Mobiele overschrijving */
-        @media (max-width: 768px) {
-            body { overflow-y: auto; }
-            .grid-container { display: flex; flex-direction: column; height: auto; }
-            .box { width: 100vw; height: 30vh; border: none; border-bottom: 1px solid #222; }
-            h2 { font-size: 4vw; }
-            .scroll-area { font-size: 3vw; }
+            border: 1px solid var(--border);
+            grid-column: span 2;
+            line-height: 1.4;
         }
     </style>
 </head>
 <body>
 
-    <div class="grid-container">
-        
-        <div class="box info-box">
-            <h2>ATMOS V11</h2>
-            <p>STATUS: <span id="status">OFFLINE</span></p>
-            <p>GRID: 3x12 DETAILED</p>
-            <p>18.6vw | 64.8vw | 16.6vw</p>
-        </div>
+<header>
+    <div>
+        <h1 style="margin:0; font-size: 1.4rem; color: #fff;">Sheaf Locality Engine <span style="color: var(--accent);">v1.0.4-chiral</span></h1>
+        <div style="color: var(--highlight); margin-top: 5px;">Repository: RAPosthumus/sheaf-locality</div>
+    </div>
+    <div class="status-block">
+        <div class="status-dot"></div> <span style="font-size: 0.8rem;">P2P SYNC ACTIVE</span>
+        <div style="font-size: 0.7rem; color: #8b949e; margin-top: 4px;">Node: Laren (5&deg; 13' O)</div>
+    </div>
+</header>
 
-        <div class="box log-box">
-            <h2>SYSTEM LOGS</h2>
-            <div id="log" class="scroll-area">> Initialisatie bitcode tunnel...<br></div>
+<div class="dashboard">
+    <div class="panel">
+        <h2>1. Chirale Deeltjesstroom (ψ-Flow)</h2>
+        <canvas id="flowCanvas"></canvas>
+        <div style="display:flex; justify-content: space-between; margin-top: 10px; font-size: 0.7rem;">
+            <span style="color: var(--chiral-l);">χL (Linkshandig)</span>
+            <span id="phaseDisplay" style="color: var(--highlight);">Fase: 0.0000 rad</span>
+            <span style="color: var(--chiral-r);">χR (Rechtshandig)</span>
         </div>
-
-        <div class="box chart-box">
-            <h2>LIVE TELEMETRIE (C++ STREAM)</h2>
-            <div id="chart-wrap">
-                <canvas id="mainChart"></canvas>
-            </div>
-        </div>
-
-        <div class="box diag-box">
-            <h2>RAW DIAGNOSTICS</h2>
-            <div class="scroll-area" id="diag-log">
-                > Listening on DataChannel...<br>
-            </div>
-        </div>
-
     </div>
 
+    <div class="panel">
+        <h2>2. 364-Dagen Cyclus Mapping</h2>
+        <div class="stat-grid">
+            <div class="stat-item">
+                <span class="stat-label">Huidige Zone</span>
+                <span class="stat-value" id="valZone">--</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Dag in Cyclus</span>
+                <span class="stat-value" id="valDay">--</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Schoof-Torsie</span>
+                <span class="stat-value" id="valTorsion">0.00%</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Symmetrie Status</span>
+                <span class="stat-value" style="color: var(--chiral-r);">INVARIANT</span>
+            </div>
+        </div>
+        <p style="font-size: 0.7rem; color: #8b949e; margin-top: 15px;">
+            Mapping gebaseerd op chirale fase-invariantie tussen Greenwich en Laren-coördinaten.
+        </p>
+    </div>
+
+    <div class="panel" style="grid-column: span 2;">
+        <h2>3. Sheaf Density Monitor (90 Zones)</h2>
+        <div class="sheaf-bar" id="sheafBar"></div>
+    </div>
+
+    <div class="terminal" id="terminal">
+        > [INIT] Engine v1.0.4-chiral geladen.<br>
+        > [P2P] Verbinding met RAPosthumus C++ Node gesynchroniseerd.<br>
+        > [SYSTEM] Wachtend op chirale fase-pakketten...<br>
+    </div>
+</div>
+
 <script>
-    const logBox = document.getElementById('log');
-    const diagBox = document.getElementById('diag-log');
-    const statusBox = document.getElementById('status');
-    let chart, pc, socket;
+    const term = document.getElementById('terminal');
+    const sheafBar = document.getElementById('sheafBar');
+    const flowCanvas = document.getElementById('flowCanvas');
+    const ctx = flowCanvas.getContext('2d');
 
-    function addLog(msg) {
-        logBox.innerHTML += `[${new Date().toLocaleTimeString()}] ${msg}<br>`;
-        logBox.scrollTop = logBox.scrollHeight;
+    // Init 90 Zones
+    for(let i=0; i<90; i++) {
+        const z = document.createElement('div');
+        z.className = 'zone';
+        z.id = 'zone-' + i;
+        sheafBar.appendChild(z);
     }
 
-    // Chart.js Setup
-    const ctx = document.getElementById('mainChart').getContext('2d');
-    chart = new Chart(ctx, {
-        type: 'line',
-        data: { labels: [], datasets: [
-            { label: 'Entropy', borderColor: '#3498db', data: [], tension: 0.1, pointRadius: 0, borderWidth: 2 },
-            { label: 'Anomaly', borderColor: '#e74c3c', data: [], tension: 0.1, pointRadius: 0, borderWidth: 2 }
-        ]},
-        options: { 
-            responsive: true, 
-            maintainAspectRatio: false, 
-            animation: false,
-            scales: {
-                x: { grid: { color: '#111' }, ticks: { color: '#0f0', font: { size: 10 } } },
-                y: { grid: { color: '#111' }, ticks: { color: '#0f0', font: { size: 10 } } }
-            },
-            plugins: { legend: { labels: { color: '#0f0', font: { family: 'monospace' } } } }
+    // Particle Animation
+    let particles = [];
+    class Particle {
+        constructor() {
+            this.reset();
+            this.x = Math.random() * flowCanvas.width;
         }
-    });
+        reset() {
+            this.x = 0;
+            this.y = Math.random() * flowCanvas.height;
+            this.speed = 1 + Math.random() * 2;
+            this.color = Math.random() > 0.5 ? '#ff7b72' : '#7ee787';
+        }
+        draw() {
+            this.x += this.speed;
+            if(this.x > flowCanvas.width) this.reset();
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, 1.5, 0, Math.PI*2);
+            ctx.fillStyle = this.color;
+            ctx.fill();
+        }
+    }
+    for(let i=0; i<50; i++) particles.push(new Particle());
 
-    function start() {
-        pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
-        socket = new WebSocket('ws://127.0.0.1:8081');
+    function animate() {
+        flowCanvas.width = flowCanvas.offsetWidth;
+        flowCanvas.height = flowCanvas.offsetHeight;
+        ctx.fillStyle = 'rgba(0,0,0,0.1)';
+        ctx.fillRect(0,0,flowCanvas.width, flowCanvas.height);
+        particles.forEach(p => p.draw());
+        requestAnimationFrame(animate);
+    }
+    animate();
 
-        const safeSend = (obj) => {
-            if (obj && obj.type && socket.readyState === WebSocket.OPEN) {
-                socket.send(JSON.stringify(obj));
+    // MAPPING LOGICA
+    function processChiralPhase(phi) {
+        // 1. Update Display
+        document.getElementById('phaseDisplay').innerText = `Fase: ${phi.toFixed(4)} rad`;
+
+        // 2. Map naar 90 Zones (0 tot 2PI)
+        const zoneIndex = Math.floor((phi / (2 * Math.PI)) * 90) % 90;
+        const dagInCyclus = Math.round((zoneIndex / 90) * 364);
+
+        // 3. Update UI
+        document.getElementById('valZone').innerText = zoneIndex;
+        document.getElementById('valDay').innerText = dagInCyclus;
+        document.getElementById('valTorsion').innerText = (Math.sin(phi) * 100).toFixed(2) + "%";
+
+        // 4. Update Visual Bar
+        document.querySelectorAll('.zone').forEach((z, i) => {
+            if(i === zoneIndex) {
+                z.classList.add('active');
+                z.style.height = "100%";
+            } else {
+                z.classList.remove('active');
+                z.style.height = (5 + Math.random() * 60) + "%";
             }
-        };
+        });
 
-        pc.ondatachannel = (event) => {
-            const dc = event.channel;
-            dc.binaryType = "arraybuffer";
-            
-            dc.onopen = () => {
-                statusBox.innerText = "ONLINE";
-                statusBox.className = "online";
-                addLog("✅ C++ STREAM CONNECTED");
-            };
-            
-            dc.onmessage = (e) => {
-                const view = new DataView(e.data);
-                const entropy = view.getFloat32(0, true); 
-                const anomaly = view.getFloat32(4, true); 
-
-                const time = new Date().toLocaleTimeString();
-                chart.data.labels.push(time);
-                chart.data.datasets[0].data.push(entropy);
-                chart.data.datasets[1].data.push(anomaly);
-                if (chart.data.labels.length > 60) chart.data.labels.shift();
-                chart.update('none');
-
-                diagBox.innerHTML += `HEX_STREAM >> E:${entropy.toFixed(2)} A:${anomaly.toFixed(2)}<br>`;
-                diagBox.scrollTop = diagBox.scrollHeight;
-                if(diagBox.innerText.length > 2000) diagBox.innerHTML = "> Buffering...<br>";
-            };
-        };
-
-        socket.onopen = () => {
-            addLog("Signaling WebSocket open.");
-            safeSend({ type: "join" });
-        };
-
-        socket.onmessage = async (e) => {
-            try {
-                const msg = JSON.parse(e.data);
-                if (msg.type === "offer") {
-                    await pc.setRemoteDescription(new RTCSessionDescription(msg));
-                    const answer = await pc.createAnswer();
-                    await pc.setLocalDescription(answer);
-                    safeSend({ type: "answer", sdp: pc.localDescription.sdp });
-                } else if (msg.type === "candidate" && msg.candidate) {
-                    await pc.addIceCandidate(new RTCIceCandidate(msg.candidate));
-                }
-            } catch (err) { console.error(err); }
-        };
-
-        pc.onicecandidate = (e) => {
-            if (e.candidate) safeSend({ type: "candidate", candidate: e.candidate });
-        };
-
-        socket.onclose = () => {
-            addLog("🔌 Connection Lost.");
-            statusBox.innerText = "OFFLINE";
-            statusBox.className = "";
-            setTimeout(() => location.reload(), 3000);
-        };
+        // 5. Terminal Log
+        const entry = document.createElement('div');
+        entry.innerHTML = `> [DATA] Received Phase: ${phi.toFixed(4)} | Mapped to Zone ${zoneIndex} | Day ${dagInCyclus}`;
+        term.appendChild(entry);
+        term.scrollTop = term.scrollHeight;
     }
 
-    window.onload = start;
+    // SIMULATIE VAN INKOMENDE DATA (Vervang dit door echte WebRTC onmessage)
+    const mockPhases = [0.6036, 0.7385, 0.5964, 0.0283, 0.1817, 0.7811];
+    let idx = 0;
+    setInterval(() => {
+        processChiralPhase(mockPhases[idx % mockPhases.length]);
+        idx++;
+    }, 3000);
+
 </script>
 </body>
 </html>
