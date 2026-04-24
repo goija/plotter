@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <title>RAPosthumus | Sheaf Bitcode Engine v1.0.8</title>
+    <style>
+        :root {
+            --bg: #010409;
+            --panel: #0d1117;
+            --text: #c9d1d9;
+            --border: #30363d;
+            --accent-xl: #58a6ff; /* χL (Positief/Blauw) */
+            --accent-xr: #7ee787; /* χR (Negatief/Groen) */
+            --highlight: #d29922; /* Singulariteit / Actief */
+            --passed: #161b22;    /* Spectral History */
+            --term-green: #3fb950;
+            --bit-red: #ff7b72;
+        }
+
+        body {
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            font-size: 13px;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 10px;
+        }
+
+        .repo-link { color: var(--accent-xl); font-size: 11px; text-decoration: none; }
+
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 15px;
+            position: relative;
+        }
+
+        h2 { font-size: 0.75rem; text-transform: uppercase; margin-top: 0; opacity: 0.7; letter-spacing: 1px; border-bottom: 1px solid var(--border); padding-bottom: 6px; margin-bottom: 10px; }
+
+        #flowCanvas { width: 100%; height: 120px; background: #000; border-radius: 4px; border: 1px solid var(--border); }
+
+        .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .stat-item { padding: 8px; background: #000; border: 1px solid var(--border); border-radius: 4px; }
+        .label { font-size: 10px; color: #8b949e; display: block; margin-bottom: 2px; text-transform: uppercase; }
+        .value { color: #fff; font-weight: bold; font-size: 13px; }
+
+        /* Density Grafiek */
+        .density-container { grid-column: span 2; }
+        .canvas-wrapper { background: #000; border: 1px solid var(--border); height: 280px; padding: 15px; position: relative; }
+        #densityCanvas { width: 100%; height: 100%; }
+        .y-axis-label { position: absolute; left: 10px; font-size: 9px; font-weight: bold; opacity: 0.6; }
+
+        /* Binaire uitlezing */
+        .bit-stream { font-family: monospace; font-size: 10px; color: var(--bit-red); letter-spacing: 2px; margin-top: 8px; }
+
+        .terminal {
+            background: #000; color: var(--term-green); padding: 12px;
+            font-size: 11px; height: 120px; overflow-y: auto; border: 1px solid var(--border);
+            grid-column: span 2; border-left: 3px solid var(--term-green);
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div>
+        <h1 style="margin:0; font-size: 1.4rem;">Sheaf Locality Engine <span style="color: var(--bit-red)">v1.0.8-bitcode</span></h1>
+        <a href="#" class="repo-link">RAPosthumus/sheaf-locality</a>
+    </div>
+    <div style="text-align:right;">
+        <span style="color: var(--term-green); font-size: 10px; font-weight: bold;">[P2P DATACHANNEL: BINARY MODE]</span><br>
+        <span style="font-size: 10px; color: #8b949e;">Payload: 12 Bytes/packet | Rate: ~20Hz</span>
+    </div>
+</header>
+
+<div class="grid">
+    <div class="panel">
+        <h2>1. Chirale Puls (Bitcode Flow)</h2>
+        <canvas id="flowCanvas"></canvas>
+        <div class="bit-stream" id="hexDisplay">AA 02 00 00 00 00 00 00 00 00 08 02</div>
+    </div>
+
+    <div class="panel">
+        <h2>2. Manifold Decoder (f(s,x) = x * 208^s)</h2>
+        <div class="stat-grid">
+            <div class="stat-item"><span class="label">Header Sync</span><span class="value" id="valHeader" style="color: var(--bit-red);">--</span></div>
+            <div class="stat-item"><span class="label">Zone ID</span><span class="value" id="valZone">--</span></div>
+            <div class="stat-item"><span class="label">Torsie (φ)</span><span class="value" id="valPhi" style="color: var(--highlight);">--</span></div>
+            <div class="stat-item"><span class="label">Tijd-Index (s)</span><span class="value" id="valS">--</span></div>
+            <div class="stat-item"><span class="label">Status Code</span><span class="value" id="valStatus">--</span></div>
+            <div class="stat-item"><span class="label">Koppeling</span><span class="value" style="color: var(--term-green)">LOCKED</span></div>
+        </div>
+    </div>
+
+    <div class="panel density-container">
+        <h2>3. Local Sheaf Density - 3D Manifold Projectie</h2>
+        <div class="canvas-wrapper">
+            <div class="y-axis-label" style="top: 20px; color: var(--accent-xl);">ψ DENSITY (+L)</div>
+            <div class="y-axis-label" style="bottom: 20px; color: var(--accent-xr);">ψ DENSITY (-R)</div>
+            <canvas id="densityCanvas"></canvas>
+        </div>
+    </div>
+
+    <div class="terminal" id="term">
+        > [SYSTEM] Engine v1.0.8-manifold-bitcode gestart.<br>
+        > [WEBRTC] DataChannel geconfigureerd voor 'arraybuffer'.<br>
+        > [MEMORY] 12-Byte Structuur gereserveerd. Wachten op 0xAA header...<br>
+    </div>
+</div>
+
+<script>
+    const term = document.getElementById('term');
+    function log(msg) {
+        term.innerHTML += `> ${msg}<br>`;
+        term.scrollTop = term.scrollHeight;
+    }
+
+    // --- CANVAS SETUP ---
+    const ctxFlow = document.getElementById('flowCanvas').getContext('2d');
+    const ctxDensity = document.getElementById('densityCanvas').getContext('2d');
+    
+    function resize() {
+        ctxFlow.canvas.width = ctxFlow.canvas.offsetWidth;
+        ctxFlow.canvas.height = ctxFlow.canvas.offsetHeight;
+        ctxDensity.canvas.width = ctxDensity.canvas.offsetWidth;
+        ctxDensity.canvas.height = ctxDensity.canvas.offsetHeight;
+    }
+    window.onresize = resize;
+    resize();
+
+    // --- KLEUREN PALET (Bulletproof voor Canvas API) ---
+    const C_XL = '#58a6ff';      // Blauw
+    const C_XR = '#7ee787';      // Groen
+    const C_HL = '#d29922';      // Goud (Singulariteit)
+    const C_PASS = '#161b22';    // Donkergrijs (History)
+
+    // --- STATE ---
+    let actuelePhi = 0;
+    let actueleS = 0;
+    const ZONES = 90;
+    const LAREN_ZONE = 1; // Zone 2 (index 1)
+
+    // ==========================================
+    // DE BITCODE DECODER
+    // ==========================================
+    function decodeBitcode(buffer) {
+        const view = new DataView(buffer);
+        const header = view.getUint8(0);
+        
+        if (header === 0xAA) {
+            const zone_id = view.getUint8(1);
+            const phi     = view.getFloat32(2, true);
+            const s_val   = view.getFloat32(6, true);
+            const status  = view.getUint16(10, true);
+
+            actuelePhi = phi;
+            actueleS = s_val;
+
+            // Update UI Data
+            document.getElementById('valHeader').innerText = "0x" + header.toString(16).toUpperCase();
+            document.getElementById('valZone').innerText = "Zone " + (zone_id + 1);
+            document.getElementById('valPhi').innerText = phi.toFixed(4) + " rad";
+            document.getElementById('valS').innerText = s_val.toFixed(2);
+            document.getElementById('valStatus').innerText = "0x" + status.toString(16).padStart(4, '0').toUpperCase();
+
+            // Hex Weergave Update
+            const hexArray = Array.from(new Uint8Array(buffer)).map(b => b.toString(16).padStart(2, '0').toUpperCase());
+            document.getElementById('hexDisplay').innerText = hexArray.join(' ');
+
+            if(Math.random() > 0.98) {
+                log(`[BINARY] Puls gedecodeerd. Torsie (φ) = ${phi.toFixed(4)} op tijdstap ${s_val.toFixed(2)}`);
+            }
+        }
+    }
+
+    // ==========================================
+    // SIMULATOR (Genereert exact 12 bytes RAM data)
+    // ==========================================
+    let simS = 0;
+    setInterval(() => {
+        const buffer = new ArrayBuffer(12);
+        const view = new DataView(buffer);
+        
+        const x_amplitude = Math.sin(simS * 0.05);
+        const normalized_s = Math.sin(simS * 0.1);
+        const raw_torsion = x_amplitude * Math.pow(208.0, normalized_s);
+        const phi = Math.tanh(raw_torsion * 0.001) * Math.PI;
+
+        view.setUint8(0, 0xAA);             
+        view.setUint8(1, 0x01);             
+        view.setFloat32(2, phi, true);      
+        view.setFloat32(6, simS, true);     
+        view.setUint16(10, 0x0208, true);   
+
+        decodeBitcode(buffer);
+        simS += 0.1;
+    }, 50); 
+
+
+    // --- VISUALISATIES ---
+    let flowHistory = new Array(200).fill(0);
+
+    function render() {
+        // --- 1. DENSITY GRAFIEK (3D Manifold) ---
+        const w = ctxDensity.canvas.width;
+        const h = ctxDensity.canvas.height;
+        const mid = h / 2;
+        const barW = (w / ZONES) - 1;
+
+        ctxDensity.clearRect(0,0,w,h);
+        ctxDensity.strokeStyle = '#30363d';
+        ctxDensity.lineWidth = 1;
+        ctxDensity.beginPath(); ctxDensity.moveTo(0, mid); ctxDensity.lineTo(w, mid); ctxDensity.stroke();
+
+        for(let i=0; i<ZONES; i++) {
+            const x = i * (barW + 1);
+            const isPassed = i < LAREN_ZONE;
+            const isActive = i === LAREN_ZONE;
+
+            let torsieL = (Math.sin(i * 0.2) * 0.2 + 0.3) * (mid * 0.5);
+            let torsieR = (Math.cos(i * 0.2) * 0.2 + 0.3) * (mid * 0.5);
+
+            if (isActive) {
+                torsieL = Math.abs(actuelePhi * mid * 0.8);
+                torsieR = Math.abs(actuelePhi * mid * 0.8);
+            }
+
+            // Teken Linkshandig (+L)
+            ctxDensity.fillStyle = isActive ? C_HL : (isPassed ? C_PASS : C_XL);
+            ctxDensity.fillRect(x, mid - torsieL, barW, torsieL);
+
+            // Teken Rechtshandig (-R)
+            ctxDensity.fillStyle = isActive ? C_HL : (isPassed ? C_PASS : C_XR);
+            ctxDensity.fillRect(x, mid, barW, torsieR);
+
+            if(isActive) {
+                ctxDensity.strokeStyle = 'rgba(210, 153, 34, 0.7)';
+                ctxDensity.setLineDash([2, 2]);
+                ctxDensity.strokeRect(x - 2, 10, barW + 4, h - 20);
+                ctxDensity.setLineDash([]);
+            }
+        }
+
+        // --- 2. FLOW ANIMATIE (Bitcode Wave) ---
+        flowHistory.unshift(actuelePhi);
+        flowHistory.pop();
+
+        ctxFlow.fillStyle = '#000';
+        ctxFlow.fillRect(0,0, ctxFlow.canvas.width, ctxFlow.canvas.height);
+        
+        const flowMid = ctxFlow.canvas.height / 2;
+        const stepX = ctxFlow.canvas.width / flowHistory.length;
+
+        ctxFlow.beginPath();
+        for(let j=0; j < flowHistory.length; j++) {
+            const px = j * stepX;
+            const py = flowMid + (flowHistory[j] * 20);
+            
+            if(j === 0) ctxFlow.moveTo(px, py);
+            else ctxFlow.lineTo(px, py);
+            
+            if (j % 5 === 0 && Math.abs(flowHistory[j]) > 0.5) {
+                ctxFlow.fillStyle = flowHistory[j] > 0 ? C_XL : C_XR;
+                ctxFlow.fillRect(px - 1, py - 1, 2, 2);
+            }
+        }
+        ctxFlow.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+        ctxFlow.lineWidth = 1;
+        ctxFlow.stroke();
+
+        requestAnimationFrame(render);
+    }
+    render();
+
+</script>
+</body>
+</html>
