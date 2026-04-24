@@ -4,21 +4,57 @@
 #include <thread>
 #include <chrono>
 #include <memory>
+#include <vector>
+#include <cmath>
+#include <algorithm>
 
 using json = nlohmann::json;
 
 // =========================================
-// BITCODE PAYLOAD (Exact 8 bytes in memory)
+// MODEL: DE BRUIJN / LYNDON GENERATOR
 // =========================================
-#pragma pack(push, 1) 
-struct AtmosPayload {
-    float entropy; // Wordt de normale teller
-    float anomaly; // Wordt de Gray Code waarde
+std::vector<int> generateDeBruijn(int k, int n) {
+    std::vector<int> seq;
+    std::vector<int> a(n + 1, 0);
+    std::function<void(int, int)> fkm = [&](int t, int p) {
+        if (t > n) {
+            if (n % p == 0) {
+                for (int i = 1; i <= p; ++i) seq.push_back(a[i]);
+            }
+        } else {
+            a[t] = a[t - p];
+            fkm(t + 1, p);
+            for (int j = a[t - p] + 1; j < k; ++j) {
+                a[t] = j;
+                fkm(t + 1, t);
+            }
+        }
+    };
+    fkm(1, 1);
+    return seq;
+}
+
+// =========================================
+// HELUO BITCODE PAYLOAD (Packed voor netwerk)
+// =========================================
+#pragma pack(push, 1)
+struct HeluoPayload {
+    float entropy;       // De 'step' waarde
+    float anomaly;       // De Gray Code waarde
+    float ccw;           // Continuous Color Weight (0.0 - 1.0)
+    uint8_t mainNum;     // Luoshu Hoofdgetal
+    uint8_t subNum;      // Luoshu Subgetal (uit de Bruijn)
+    uint8_t c_index;     // De verstoringstap (0-10)
+    uint8_t status;      // 0 = OK, 1 = RED ERROR
 };
 #pragma pack(pop)
 
 int main() {
-    rtc::InitLogger(rtc::LogLevel::Warning); 
+    rtc::InitLogger(rtc::LogLevel::Warning);
+
+    // Initialiseer Luoshu en de Bruijn modellen
+    std::vector<int> mainPattern = {9, 5, 7, 8, 1, 3, 4, 6, 2};
+    auto debruijn_states = generateDeBruijn(3, 3); // Canonieke cyclus
 
     rtc::Configuration config;
     config.iceServers.emplace_back("stun:stun.l.google.com:19302");
@@ -26,97 +62,90 @@ int main() {
     rtc::WebSocketServerConfiguration wsConfig;
     wsConfig.port = 8081;
     rtc::WebSocketServer wsServer(wsConfig);
-    
-    std::cout << "[SERVER] GrayCodePlotter WebRTC Sender start op ws://127.0.0.1:8081..." << std::endl;
 
-    wsServer.onClient([&config](std::shared_ptr<rtc::WebSocket> ws) {
-        std::cout << "[SIGNALING] Nieuwe client verbonden. Wachten op 'join'..." << std::endl;
+    std::cout << "[SERVER] Heluo Qi DataPipe gestart op ws://127.0.0.1:8081..." << std::endl;
+
+    wsServer.onClient([&config, mainPattern, debruijn_states](std::shared_ptr<rtc::WebSocket> ws) {
+        std::cout << "[SIGNALING] Client verbonden." << std::endl;
 
         auto pc = std::make_shared<rtc::PeerConnection>(config);
-        
-        // Een slimme pointer wrapper om ons DataChannel later veilig in op te slaan
         auto dc_wrapper = std::make_shared<std::shared_ptr<rtc::DataChannel>>();
 
-        // =========================================
-        // STAP 1: ZET DE ANTENNES AAN (Callbacks)
-        // =========================================
+        // STAP 1: WebRTC Signalerings Callbacks
         pc->onLocalDescription([ws](rtc::Description description) {
-            std::cout << "[WEBRTC] Offer gegenereerd! Verzenden naar browser..." << std::endl;
-            json desc_msg = {
-                {"type", description.typeString()},
-                {"sdp", std::string(description)}
-            };
+            json desc_msg = {{"type", description.typeString()}, {"sdp", std::string(description)}};
             ws->send(desc_msg.dump());
         });
 
         pc->onLocalCandidate([ws](rtc::Candidate candidate) {
-            json ice_msg = {
-                {"type", "candidate"},
-                {"candidate", {
-                    {"candidate", candidate.candidate()},
-                    {"sdpMid", candidate.mid()}
-                }}
-            };
+            json ice_msg = {{"type", "candidate"}, {"candidate", {{"candidate", candidate.candidate()}, {"sdpMid", candidate.mid()}}}};
             ws->send(ice_msg.dump());
         });
 
-        // =========================================
-        // STAP 2: LUISTEREN NAAR DE BROWSER
-        // =========================================
-        ws->onMessage([ws, pc, dc_wrapper](std::variant<rtc::binary, rtc::string> data) {
+        // STAP 2: Berichten van browser afhandelen
+        ws->onMessage([ws, pc, dc_wrapper, mainPattern, debruijn_states](std::variant<rtc::binary, rtc::string> data) {
             if (!std::holds_alternative<rtc::string>(data)) return;
-            
             json msg = json::parse(std::get<rtc::string>(data), nullptr, false);
-            if (msg.is_discarded() || !msg.contains("type")) return;
+            if (msg.is_discarded()) return;
 
             std::string type = msg["type"];
 
             if (type == "join") {
-                std::cout << "[WEBRTC] 'Join' ontvangen! Tunnel aanmaken..." << std::endl;
+                *dc_wrapper = pc->createDataChannel("heluo-stream");
 
-                // STAP 3: NU PAS HET KANAAL MAKEN!
-                // Omdat de antennes aanstaan, triggert dit direct en veilig de Offer.
-                *dc_wrapper = pc->createDataChannel("atmos-tunnel");
+                (*dc_wrapper)->onOpen([dc_wrapper, mainPattern, debruijn_states]() {
+                    std::cout << "[DATACHANNEL] OPEN! Starten Luoshu/Lyndon pipeline..." << std::endl;
+                    auto dc = *dc_wrapper;
 
-                (*dc_wrapper)->onOpen([dc_wrapper]() {
-                    std::cout << "[DATACHANNEL] OPEN! Starten Gray Code stroom..." << std::endl;
-                    auto dc = *dc_wrapper; // Haal het kanaal uit de wrapper
-                    
-                    std::thread([dc]() {
+                    std::thread([dc, mainPattern, debruijn_states]() {
                         uint32_t counter = 0;
 
                         while (dc && dc->isOpen()) {
-                            uint32_t step = counter % 32;
-                            uint32_t gray = step ^ (step >> 1); // Bereken de Gray Code
+                            // Bepaal huidige posities in de cycli
+                            size_t patternIdx = (counter / 11) % mainPattern.size();
+                            int mainVal = mainPattern[patternIdx];
+                            int subVal = debruijn_states[patternIdx % debruijn_states.size()];
+                            
+                            // 11-staps verstoring (c)
+                            int c_step = counter % 11;
+                            double c_factor = c_step / 10.0;
 
-                            AtmosPayload payload;
-                            payload.entropy = static_cast<float>(step); 
-                            payload.anomaly = static_cast<float>(gray); 
+                            // Gray code berekening voor anomaly
+                            uint32_t gray = c_step ^ (c_step >> 1);
 
-                            // Stuur de binaire payload naar de browser
+                            // Bereken de Continuous Color Weight (CCW)
+                            double noise = std::sin(mainVal + c_factor);
+                            float calculated_ccw = static_cast<float>(std::clamp((subVal / 9.0) + (c_factor * noise * 0.1), 0.0, 1.0));
+
+                            // Bouw de binaire payload
+                            HeluoPayload payload;
+                            payload.entropy = static_cast<float>(c_step);
+                            payload.anomaly = static_cast<float>(gray);
+                            payload.ccw = calculated_ccw;
+                            payload.mainNum = static_cast<uint8_t>(mainVal);
+                            payload.subNum = static_cast<uint8_t>(subVal);
+                            payload.c_index = static_cast<uint8_t>(c_step);
+                            
+                            // Operational Error logic (Red reserved)
+                            payload.status = (std::isnan(calculated_ccw)) ? 1 : 0;
+
+                            // Verzenden
                             dc->send(reinterpret_cast<const std::byte*>(&payload), sizeof(payload));
 
                             counter++;
-                            std::this_thread::sleep_for(std::chrono::milliseconds(200)); 
+                            std::this_thread::sleep_for(std::chrono::milliseconds(150));
                         }
-                        std::cout << "[DATACHANNEL] Gesloten. Stroom gestopt." << std::endl;
                     }).detach();
                 });
 
             } else if (type == "answer") {
-                std::cout << "[WEBRTC] Answer ontvangen van browser! Connectie opbouwen..." << std::endl;
-                rtc::Description desc(msg["sdp"].get<std::string>(), type);
-                pc->setRemoteDescription(desc);
+                pc->setRemoteDescription(rtc::Description(msg["sdp"].get<std::string>(), type));
             } else if (type == "candidate") {
-                rtc::Candidate cand(msg["candidate"]["candidate"].get<std::string>(), msg["candidate"]["sdpMid"].get<std::string>());
-                pc->addRemoteCandidate(cand);
+                pc->addRemoteCandidate(rtc::Candidate(msg["candidate"]["candidate"].get<std::string>(), msg["candidate"]["sdpMid"].get<std::string>()));
             }
         });
     });
 
-    while (true) {
-        std::this_thread::sleep_for(std::chrono::seconds(1));
-    }
-
+    while (true) std::this_thread::sleep_for(std::chrono::seconds(1));
     return 0;
 }
