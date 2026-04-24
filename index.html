@@ -1,19 +1,19 @@
+
 <!DOCTYPE html>
 <html lang="nl">
 <head>
     <meta charset="UTF-8">
-    <title>RAPosthumus | Sheaf 364-Cycle Monitor</title>
+    <title>RAPosthumus | Chiral Sheaf Monitor v1.0.4</title>
     <style>
         :root {
-            --bg: #010409;
+            --bg: #050b14;
             --panel: #0d1117;
-            --accent: #58a6ff;
-            --chiral-l: #ff7b72;
-            --chiral-r: #7ee787;
             --text: #c9d1d9;
             --border: #30363d;
-            --highlight: #d29922;
-            --terminal-text: #3fb950;
+            --accent-blue: #58a6ff; /* χL (Linkshandig) */
+            --accent-green: #7ee787; /* χR (Rechtshandig) */
+            --highlight: #d29922; /* Zone 8 */
+            --term-green: #3fb950;
         }
 
         body {
@@ -24,101 +24,89 @@
             padding: 20px;
             display: flex;
             flex-direction: column;
-            gap: 20px;
+            gap: 15px;
+            font-size: 13px;
         }
 
         header {
             display: flex;
             justify-content: space-between;
-            align-items: flex-start;
+            align-items: center;
             border-bottom: 1px solid var(--border);
-            padding-bottom: 15px;
+            padding-bottom: 10px;
         }
 
-        .status-block { text-align: right; }
-        .status-dot {
-            height: 8px; width: 8px;
-            background-color: var(--chiral-r);
-            border-radius: 50%;
-            display: inline-block;
-            box-shadow: 0 0 8px var(--chiral-r);
-        }
+        h1 { margin: 0; font-size: 1.2rem; color: #fff; }
+        .repo { color: var(--accent-blue); }
 
         .dashboard {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
+            grid-template-columns: 1.2fr 1fr;
+            gap: 15px;
         }
 
         .panel {
             background: var(--panel);
             border: 1px solid var(--border);
             border-radius: 6px;
-            padding: 20px;
+            padding: 15px;
         }
 
-        h2 { font-size: 0.8rem; color: var(--accent); text-transform: uppercase; margin-top: 0; letter-spacing: 1px; }
+        h2 { font-size: 0.8rem; color: var(--text); text-transform: uppercase; margin-top: 0; opacity: 0.8; letter-spacing: 1px; }
 
-        /* Chiral Canvas */
+        /* Panel 1: Flow */
         #flowCanvas {
             width: 100%;
-            height: 180px;
+            height: 150px;
             background: #000;
-            border-radius: 4px;
-            border: 1px solid var(--border);
+            border: 1px solid #000;
         }
 
-        /* 90 Zones Bar */
-        .sheaf-container {
-            margin-top: 10px;
-        }
-        .sheaf-bar {
-            display: flex;
-            height: 100px;
-            align-items: flex-end;
-            gap: 1px;
-            background: #000;
-            padding: 5px;
-            border: 1px solid var(--border);
-        }
-        .zone {
-            flex: 1;
-            background: var(--accent);
-            opacity: 0.2;
-            min-height: 2px;
-            transition: all 0.1s ease;
-        }
-        .zone.active {
-            background: var(--highlight) !important;
-            opacity: 1 !important;
-            box-shadow: 0 0 10px var(--highlight);
-        }
-
-        /* Stats */
+        /* Panel 2: Mapping Stats */
         .stat-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 10px;
-            font-size: 0.85rem;
         }
         .stat-item {
             padding: 10px;
-            background: rgba(255,255,255,0.03);
+            background: rgba(255,255,255,0.02);
             border: 1px solid var(--border);
         }
-        .stat-label { font-size: 0.7rem; color: #8b949e; display: block; margin-bottom: 4px; }
-        .stat-value { color: var(--highlight); font-weight: bold; font-size: 1.1rem; }
+        .label { font-size: 0.7rem; color: #8b949e; display: block; margin-bottom: 3px; text-transform: uppercase;}
+        .value { color: var(--term-green); font-weight: bold; font-size: 1rem; }
 
+        /* Panel 3: Local Density (The requested change) */
+        .density-container {
+            position: relative;
+            grid-column: span 2;
+        }
+        .density-canvas-wrapper {
+            position: relative;
+            background: #000;
+            border: 1px solid var(--border);
+            height: 250px; /* Meer hoogte voor de split chart */
+            padding: 10px;
+        }
+        
+        #densityCanvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        .label-xl { color: var(--accent-blue); position: absolute; left: 15px; top: 15px; font-size: 10px;}
+        .label-xr { color: var(--accent-green); position: absolute; left: 15px; bottom: 15px; font-size: 10px;}
+
+        /* Terminal */
         .terminal {
             background: #000;
-            color: var(--terminal-text);
-            padding: 15px;
+            color: var(--term-green);
+            padding: 10px;
             font-size: 0.75rem;
-            height: 140px;
+            height: 120px;
             overflow-y: auto;
             border: 1px solid var(--border);
             grid-column: span 2;
-            line-height: 1.4;
         }
     </style>
 </head>
@@ -126,12 +114,12 @@
 
 <header>
     <div>
-        <h1 style="margin:0; font-size: 1.4rem; color: #fff;">Sheaf Locality Engine <span style="color: var(--accent);">v1.0.4-chiral</span></h1>
-        <div style="color: var(--highlight); margin-top: 5px;">Repository: RAPosthumus/sheaf-locality</div>
+        <h1>Sheaf Locality Engine <span style="opacity:0.5; color: var(--accent-blue)">v1.0.4-chiral</span></h1>
+        <span class="repo">RAPosthumus/sheaf-locality</span>
     </div>
-    <div class="status-block">
-        <div class="status-dot"></div> <span style="font-size: 0.8rem;">P2P SYNC ACTIVE</span>
-        <div style="font-size: 0.7rem; color: #8b949e; margin-top: 4px;">Node: Laren (5&deg; 13' O)</div>
+    <div style="text-align:right;">
+        <span style="color: var(--term-green); font-size: 10px;">P2P SYNC ACTIVE</span><br>
+        <span style="font-size: 10px; color: #8b949e;">Node: Laren (5&deg; 13' O)</span>
     </div>
 </header>
 
@@ -139,137 +127,180 @@
     <div class="panel">
         <h2>1. Chirale Deeltjesstroom (ψ-Flow)</h2>
         <canvas id="flowCanvas"></canvas>
-        <div style="display:flex; justify-content: space-between; margin-top: 10px; font-size: 0.7rem;">
-            <span style="color: var(--chiral-l);">χL (Linkshandig)</span>
-            <span id="phaseDisplay" style="color: var(--highlight);">Fase: 0.0000 rad</span>
-            <span style="color: var(--chiral-r);">χR (Rechtshandig)</span>
+        <div style="display:flex; justify-content:space-between; font-size: 10px; margin-top: 5px;">
+            <span style="color: var(--accent-blue)">χL (Linkshandig)</span>
+            <span style="color:var(--accent-green)">χR (Rechtshandig)</span>
         </div>
     </div>
 
     <div class="panel">
         <h2>2. 364-Dagen Cyclus Mapping</h2>
         <div class="stat-grid">
-            <div class="stat-item">
-                <span class="stat-label">Huidige Zone</span>
-                <span class="stat-value" id="valZone">--</span>
-            </div>
-            <div class="stat-item">
-                <span class="stat-label">Dag in Cyclus</span>
-                <span class="stat-value" id="valDay">--</span>
-            </div>
-            <div class="stat-item">
-                <span class="stat-label">Schoof-Torsie</span>
-                <span class="stat-value" id="valTorsion">0.00%</span>
-            </div>
-            <div class="stat-item">
-                <span class="stat-label">Symmetrie Status</span>
-                <span class="stat-value" style="color: var(--chiral-r);">INVARIANT</span>
-            </div>
+            <div class="stat-item"><span class="label">Huidige Zone</span><span class="value" style="color: #fff">2</span></div>
+            <div class="stat-item"><span class="label">Dag in Cyclus</span><span class="value" style="color: #fff">8</span></div>
+            <div class="stat-item"><span class="label">Schoof-Torsie</span><span class="value" style="color:var(--highlight)">18.07%</span></div>
+            <div class="stat-item"><span class="label">Symmetrie Status</span><span class="value">INVARIANT</span></div>
         </div>
-        <p style="font-size: 0.7rem; color: #8b949e; margin-top: 15px;">
-            Mapping gebaseerd op chirale fase-invariantie tussen Greenwich en Laren-coördinaten.
-        </p>
     </div>
 
-    <div class="panel" style="grid-column: span 2;">
-        <h2>3. Sheaf Density Monitor (90 Zones)</h2>
-        <div class="sheaf-bar" id="sheafBar"></div>
+    <div class="panel density-container">
+        <h2>3. Local Sheaf Density (90 Zones)</h2>
+        <div class="density-canvas-wrapper">
+            <div class="label-xl">ψ DENSITY (+L)</div>
+            <div class="label-xr">ψ DENSITY (-R)</div>
+            <canvas id="densityCanvas"></canvas>
+        </div>
     </div>
 
-    <div class="terminal" id="terminal">
-        > [INIT] Engine v1.0.4-chiral geladen.<br>
-        > [P2P] Verbinding met RAPosthumus C++ Node gesynchroniseerd.<br>
-        > [SYSTEM] Wachtend op chirale fase-pakketten...<br>
+    <div class="terminal" id="term">
+        > [INIT] Engine v1.0.4-chiral geladen...<br>
+        > [P2P] Verbinding met RAPosthumus Node gesynchroniseerd.<br>
+        > [MAPPING] Dag 8 gedetecteerd. Zone 8 geactiveerd...<br>
     </div>
 </div>
 
 <script>
-    const term = document.getElementById('terminal');
-    const sheafBar = document.getElementById('sheafBar');
+    const term = document.getElementById('term');
     const flowCanvas = document.getElementById('flowCanvas');
-    const ctx = flowCanvas.getContext('2d');
+    const ctxFlow = flowCanvas.getContext('2d');
+    const densityCanvas = document.getElementById('densityCanvas');
+    const ctxDensity = densityCanvas.getContext('2d');
 
-    // Init 90 Zones
-    for(let i=0; i<90; i++) {
-        const z = document.createElement('div');
-        z.className = 'zone';
-        z.id = 'zone-' + i;
-        sheafBar.appendChild(z);
+    // --- INIT CANVAS GROOTTE ---
+    function initCanvas() {
+        flowCanvas.width = flowCanvas.offsetWidth;
+        flowCanvas.height = flowCanvas.offsetHeight;
+        densityCanvas.width = densityCanvas.offsetWidth;
+        densityCanvas.height = densityCanvas.offsetHeight;
     }
+    window.onresize = initCanvas;
+    initCanvas();
 
-    // Particle Animation
-    let particles = [];
-    class Particle {
+    // --- PANEL 1: FLOW SIMULATIE ---
+    let flowParticles = [];
+    class FlowParticle {
         constructor() {
-            this.reset();
-            this.x = Math.random() * flowCanvas.width;
-        }
-        reset() {
             this.x = 0;
             this.y = Math.random() * flowCanvas.height;
             this.speed = 1 + Math.random() * 2;
-            this.color = Math.random() > 0.5 ? '#ff7b72' : '#7ee787';
+            this.color = Math.random() > 0.5 ? '#ff7b72' : '#7ee787'; // Rood of Groen
         }
         draw() {
             this.x += this.speed;
-            if(this.x > flowCanvas.width) this.reset();
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, 1.5, 0, Math.PI*2);
-            ctx.fillStyle = this.color;
-            ctx.fill();
+            if(this.x > flowCanvas.width) this.x = 0;
+            ctxFlow.beginPath();
+            ctxFlow.arc(this.x, this.y, 1, 0, Math.PI*2);
+            ctxFlow.fillStyle = this.color;
+            ctxFlow.fill();
         }
     }
-    for(let i=0; i<50; i++) particles.push(new Particle());
+    for(let i=0; i<40; i++) flowParticles.push(new FlowParticle());
 
-    function animate() {
-        flowCanvas.width = flowCanvas.offsetWidth;
-        flowCanvas.height = flowCanvas.offsetHeight;
-        ctx.fillStyle = 'rgba(0,0,0,0.1)';
-        ctx.fillRect(0,0,flowCanvas.width, flowCanvas.height);
-        particles.forEach(p => p.draw());
-        requestAnimationFrame(animate);
+    function animateFlow() {
+        ctxFlow.fillStyle = 'rgba(0,0,0,0.1)';
+        ctxFlow.fillRect(0,0,flowCanvas.width, flowCanvas.height);
+        flowParticles.forEach(p => p.draw());
+        requestAnimationFrame(animateFlow);
     }
-    animate();
+    animateFlow();
 
-    // MAPPING LOGICA
-    function processChiralPhase(phi) {
-        // 1. Update Display
-        document.getElementById('phaseDisplay').innerText = `Fase: ${phi.toFixed(4)} rad`;
+    // --- PANEL 3: LOCAL DENSITY LOGICA (HET VERZOEK) ---
+    // Genereer vaste, maar varieërende data voor 90 zones
+    // [Zone_index, ψ_Left, ψ_Right]
+    let zonalData = [];
+    for (let i = 0; i < 90; i++) {
+        // ψ_Left: 30% tot 80% van de halve hoogte
+        const xlVal = 0.3 + Math.random() * 0.5;
+        // ψ_Right: 20% tot 70% van de halve hoogte
+        const xrVal = 0.2 + Math.random() * 0.5;
+        zonalData.push([i, xlVal, xrVal]);
+    }
 
-        // 2. Map naar 90 Zones (0 tot 2PI)
-        const zoneIndex = Math.floor((phi / (2 * Math.PI)) * 90) % 90;
-        const dagInCyclus = Math.round((zoneIndex / 90) * 364);
+    function drawDensity() {
+        const w = densityCanvas.width;
+        const h = densityCanvas.height;
+        const baselineY = h / 2; // Nul-lijn in het midden
+        const maxBarHeight = baselineY - 15; // Maximale uitslag omhoog of omlaag
+        
+        ctxDensity.clearRect(0,0,w,h);
 
-        // 3. Update UI
-        document.getElementById('valZone').innerText = zoneIndex;
-        document.getElementById('valDay').innerText = dagInCyclus;
-        document.getElementById('valTorsion').innerText = (Math.sin(phi) * 100).toFixed(2) + "%";
+        // 1. Teken Baselines en Grid
+        ctxDensity.strokeStyle = '#30363d';
+        ctxDensity.lineWidth = 1;
+        ctxDensity.beginPath();
+        // Nul-lijn
+        ctxDensity.moveTo(0, baselineY); ctxDensity.lineTo(w, baselineY);
+        // Rasterlijnen (+L en -R grenzen)
+        ctxDensity.moveTo(0, 15); ctxDensity.lineTo(w, 15);
+        ctxDensity.moveTo(0, h-15); ctxDensity.lineTo(w, h-15);
+        ctxDensity.stroke();
 
-        // 4. Update Visual Bar
-        document.querySelectorAll('.zone').forEach((z, i) => {
-            if(i === zoneIndex) {
-                z.classList.add('active');
-                z.style.height = "100%";
-            } else {
-                z.classList.remove('active');
-                z.style.height = (5 + Math.random() * 60) + "%";
+        // Labels voor de Baselines
+        ctxDensity.fillStyle = '#6e7681';
+        ctxDensity.font = '8px SFMono-Regular, monospace';
+        ctxDensity.fillText('0', 5, baselineY + 3);
+
+        const barGap = 1;
+        const barWidth = (w / 90) - barGap;
+
+        // 2. Teken de Zone Data
+        for (let i = 0; i < 90; i++) {
+            const [index, xlVal, xrVal] = zonalData[i];
+            const x = i * (barWidth + barGap);
+            const isHighlight = (i === 8); // Zone 8 markeren (Huidige Zone)
+
+            // Teken Linkshandig (+L): Positief, Blauw
+            const xlHeight = xlVal * maxBarHeight;
+            const xlY = baselineY - xlHeight;
+            
+            ctxDensity.fillStyle = isHighlight ? 'var(--highlight)' : 'var(--accent-blue)';
+            ctxDensity.globalAlpha = isHighlight ? 1 : (0.5 + (xlVal/2)); // Helderder naarmate de density hoger is
+            ctxDensity.fillRect(x, xlY, barWidth, xlHeight);
+
+            // Teken Rechtshandig (-R): Negatief, Groen
+            const xrHeight = xrVal * maxBarHeight;
+            const xrY = baselineY; // Start op de nul-lijn en ga omlaag
+            
+            ctxDensity.fillStyle = isHighlight ? 'var(--highlight)' : 'var(--accent-green)'; // Groen colored!
+            ctxDensity.globalAlpha = isHighlight ? 1 : (0.5 + (xrVal/2));
+            ctxDensity.fillRect(x, xrY, barWidth, xrHeight);
+
+            // Reset Alpha
+            ctxDensity.globalAlpha = 1;
+
+            // Markeer Zone 8 specifiek
+            if (isHighlight) {
+                // Gouden "scan-lijn" over de volle breedte
+                ctxDensity.strokeStyle = 'var(--highlight)';
+                ctxDensity.lineWidth = 1;
+                ctxDensity.setLineDash([5, 5]);
+                ctxDensity.beginPath();
+                ctxDensity.moveTo(x + (barWidth/2), 0);
+                ctxDensity.lineTo(x + (barWidth/2), h);
+                ctxDensity.stroke();
+                ctxDensity.setLineDash([]);
+                
+                // Label
+                ctxDensity.fillStyle = '#fff';
+                ctxDensity.font = 'bold 8px SFMono-Regular, monospace';
+                ctxDensity.fillText('ZONE 8 (ACTIVE)', x + barWidth + 5, baselineY - xlHeight - 5);
             }
-        });
+        }
 
-        // 5. Terminal Log
-        const entry = document.createElement('div');
-        entry.innerHTML = `> [DATA] Received Phase: ${phi.toFixed(4)} | Mapped to Zone ${zoneIndex} | Day ${dagInCyclus}`;
-        term.appendChild(entry);
-        term.scrollTop = term.scrollHeight;
+        // X-As Labels (Zone 0, Zone 30, etc.)
+        ctxDensity.fillStyle = '#6e7681';
+        ctxDensity.font = '8px SFMono-Regular, monospace';
+        for (let i = 0; i <= 90; i += 30) {
+            const x = i * (barWidth + barGap);
+            const label = i === 90 ? 'ZONE 90' : 'ZONE ' + i;
+            ctxDensity.fillText(label, x, h - 5);
+        }
     }
 
-    // SIMULATIE VAN INKOMENDE DATA (Vervang dit door echte WebRTC onmessage)
-    const mockPhases = [0.6036, 0.7385, 0.5964, 0.0283, 0.1817, 0.7811];
-    let idx = 0;
-    setInterval(() => {
-        processChiralPhase(mockPhases[idx % mockPhases.length]);
-        idx++;
-    }, 3000);
+    // Start de Density tekenloop
+    // We tekenen dit statisch omdat de zonalData vast is, maar bij P2P sync
+    // zou je zonalData live updaten en drawDensity() opnieuw aanroepen.
+    setTimeout(drawDensity, 500);
 
 </script>
 </body>
